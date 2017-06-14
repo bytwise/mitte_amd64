@@ -1,12 +1,13 @@
 extern crate mitte_amd64;
 extern crate capstone;
 
-use mitte_amd64::Emit;
+use mitte_amd64::{Emit, Error};
 use mitte_amd64::reg::*;
 use mitte_amd64::operand::{Operand, byte_pointer, word_pointer, dword_pointer, qword_pointer};
-use mitte_amd64::Result;
 
 use capstone::{Capstone, CsArch, CsMode};
+
+type Result<T> = std::result::Result<T, Error<std::io::Error>>;
 
 
 const REGS8: [(Reg8, &'static str); 20] = [

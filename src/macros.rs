@@ -11,12 +11,15 @@ macro_rules! op {
         }
     ) => {
         impl<W, $($A : $bound),*> $Trait<$($T),*> for W where W: ::EmitBytes {
-            fn write(&mut self, $($c: $C),* $(, $arg: $T)*) -> ::Result<()> {
+            fn write(&mut self, $($c: $C),* $(, $arg: $T)*)
+                -> ::std::result::Result<(), ::error::Error<W::Error>>
+            {
                 let mut buffer = ::buffer::Buffer::new();
                 $(
                     try!(::buffer::Write::write(&mut buffer, $e));
                 )*
-                self.write(&buffer)
+                try!(self.write(&buffer));
+                Ok(())
             }
         }
         op! { $Trait { $($rest)* } }
@@ -30,12 +33,15 @@ macro_rules! op {
         }
     ) => {
         impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
-            fn write(&mut self, $($arg: $T),*) -> ::Result<()> {
+            fn write(&mut self, $($arg: $T),*)
+                -> ::std::result::Result<(), ::error::Error<W::Error>>
+            {
                 let mut buffer = ::buffer::Buffer::new();
                 $(
                     try!(::buffer::Write::write(&mut buffer, $e));
                 )*
-                self.write(&buffer)
+                try!(self.write(&buffer));
+                Ok(())
             }
         }
         op! { $Trait { $($rest)* } }
@@ -50,12 +56,15 @@ macro_rules! op {
     ) => {
         impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
             type Return = $R;
-            fn write(&mut self, $($arg: $T),*) -> ::Result<$R> {
+            fn write(&mut self, $($arg: $T),*)
+                -> ::std::result::Result<$R, ::error::Error<W::Error>>
+            {
                 let mut buffer = ::buffer::Buffer::new();
                 $(
                     try!(::buffer::Write::write(&mut buffer, $e));
                 )*
-                self.write(&buffer)
+                try!(self.write(&buffer));
+                Ok(())
             }
         }
         op! { $Trait => $R { $($rest)* } }
@@ -235,7 +244,9 @@ macro_rules! dispatch_ptr {
     ) => {
         impl<W> $Trait<$Ptr $(, $T)*> for W where W: ::EmitBytes {
             #[allow(non_snake_case)]
-            fn write(&mut self, ptr: $Ptr $(, $T: $T)*) -> ::Result<()> {
+            fn write(&mut self, ptr: $Ptr $(, $T: $T)*)
+                -> ::std::result::Result<(), ::error::Error<W::Error>>
+            {
                 use ::ptr::Pointer;
                 match ptr.ptr {
                     Pointer::Disp8(d) => {
@@ -285,7 +296,9 @@ macro_rules! dispatch_ptr {
     ) => {
         impl<W> $Trait<$T, $Ptr> for W where W: ::EmitBytes {
             #[allow(non_snake_case)]
-            fn write(&mut self, arg: $T, ptr: $Ptr) -> ::Result<()> {
+            fn write(&mut self, arg: $T, ptr: $Ptr)
+                -> ::std::result::Result<(), ::error::Error<W::Error>>
+            {
                 use ::ptr::Pointer;
                 match ptr.ptr {
                     Pointer::Disp8(d) => {
@@ -340,7 +353,9 @@ macro_rules! forward {
         }
     ) => {
         impl<W, $($A : $bound),*> $Trait<$($T),*> for W where W: ::EmitBytes {
-            fn write(&mut self, $($arg: $T),*) -> ::Result<()> {
+            fn write(&mut self, $($arg: $T),*)
+                -> ::std::result::Result<(), ::error::Error<W::Error>>
+            {
                 $f(self, $($e),*)
             }
         }
@@ -352,7 +367,9 @@ macro_rules! forward {
         $($rest:tt)*
     }) => {
         impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
-            fn write(&mut self, $($arg: $T),*) -> ::Result<()> {
+            fn write(&mut self, $($arg: $T),*)
+                -> ::std::result::Result<(), ::error::Error<W::Error>>
+            {
                 $f(self, $($e),*)
             }
         }
@@ -366,7 +383,9 @@ macro_rules! forward {
         }
     ) => {
         impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
-            fn write(&mut self, $($c: $C,)* $($arg: $T),*) -> ::Result<()> {
+            fn write(&mut self, $($c: $C,)* $($arg: $T),*)
+                -> ::std::result::Result<(), ::error::Error<W::Error>>
+            {
                 $f(self, $($e),*)
             }
         }

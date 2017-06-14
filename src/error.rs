@@ -1,24 +1,26 @@
-use std::result;
 use std::error;
-use std::io;
 use std::fmt;
+use std::io;
 
 use reg::{Reg8, Reg64};
 
 
-pub type Result<T> = result::Result<T, Error>;
+pub type IoError = Error<io::Error>;
+
 
 #[derive(Debug)]
-pub enum Error {
+pub enum Error<E> {
     InvalidOperands,
     RexIncompatibleRegister(Reg8),
     InvalidIndexRegister(Reg64),
     RedefinedLabel,
     LabelTooFarAway,
-    Io(io::Error),
+    Custom(E),
 }
 
-impl fmt::Display for Error {
+impl<E> fmt::Display for Error<E>
+    where E: fmt::Display
+{
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Error::InvalidOperands => write!(fmt, "invalid operands"),
@@ -28,12 +30,14 @@ impl fmt::Display for Error {
                 write!(fmt, "register {:?} can't be used as index", reg),
             Error::RedefinedLabel => write!(fmt, "can't bind label twice"),
             Error::LabelTooFarAway => write!(fmt, "label is too far away"),
-            Error::Io(ref error) => error.fmt(fmt)
+            Error::Custom(ref error) => error.fmt(fmt),
         }
     }
 }
 
-impl error::Error for Error {
+impl<E> error::Error for Error<E>
+    where E: error::Error
+{
     fn description(&self) -> &str {
         match *self {
             Error::InvalidOperands => "invalid operands",
@@ -41,21 +45,23 @@ impl error::Error for Error {
             Error::InvalidIndexRegister(..) => "register can't be used as index",
             Error::RedefinedLabel => "can't bind label twice",
             Error::LabelTooFarAway => "label is too far away",
-            Error::Io(ref error) => error.description(),
+            Error::Custom(ref error) => error.description(),
         }
     }
 
     fn cause(&self) -> Option<&error::Error> {
         match *self {
-            Error::Io(ref error) => Some(error),
+            Error::Custom(ref error) => Some(error),
             _ => None
         }
     }
 }
 
-impl From<io::Error> for Error {
+impl<E> From<E> for Error<E>
+    where E: error::Error
+{
     #[inline]
-    fn from(error: io::Error) -> Error {
-        Error::Io(error)
+    fn from(error: E) -> Error<E> {
+        Error::Custom(error)
     }
 }

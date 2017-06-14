@@ -1,5 +1,5 @@
-use common::Register;
-use error::{Error, Result};
+use common::{Register, NoError};
+use error::Error;
 pub use self::Reg8::*;
 pub use self::Reg16::*;
 pub use self::Reg32::*;
@@ -68,7 +68,7 @@ impl Register for Reg8 {
     }
 
     #[inline]
-    fn check_is_rex_compatible(&self) -> Result<()> {
+    fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>> {
         if self.is_encodable_with_rex() {
             Ok(())
         } else {
@@ -136,7 +136,7 @@ impl Register for Reg16 {
     }
 
     #[inline]
-    fn check_is_rex_compatible(&self) -> Result<()> {
+    fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>> {
         Ok(())
     }
 }
@@ -200,7 +200,7 @@ impl Register for Reg32 {
     }
 
     #[inline]
-    fn check_is_rex_compatible(&self) -> Result<()> {
+    fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>> {
         Ok(())
     }
 }
@@ -288,7 +288,7 @@ impl Register for Reg64 {
     }
 
     #[inline]
-    fn check_is_rex_compatible(&self) -> Result<()> {
+    fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>> {
         Ok(())
     }
 }

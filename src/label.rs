@@ -1,15 +1,15 @@
 use EmitBytes;
-use error::{Error, Result};
+use error::Error;
 use fixup::{HoleKind, Hole, Fixup};
 use amd64::{Jmp, Je, Jz, Jne, Jnz, Ja, Jl, Jge, Jle, Jg};
 
 
-pub trait BindLabel {
-    fn bind_label(&mut self, label: &mut Label) -> Result<()>;
+pub trait BindLabel: EmitBytes {
+    fn bind_label(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> BindLabel for W where W: EmitBytes {
-    fn bind_label(&mut self, label: &mut Label) -> Result<()> {
+    fn bind_label(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
         if label.address.is_some() {
             return Err(Error::RedefinedLabel);
         }
@@ -46,7 +46,7 @@ impl Label {
 
 impl<'a, W> Jmp<&'a mut Label> for W where W: EmitBytes {
     type Return = ();
-    fn write(&mut self, label: &mut Label) -> Result<()> {
+    fn write(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
         if let Some(addr) = label.address {
             let offset = addr as isize - (self.pos() as isize + 5);
 
@@ -69,7 +69,7 @@ macro_rules! jcc {
         $(
             impl<'a, W> $J<&'a mut Label> for W where W: EmitBytes {
                 type Return = ();
-                fn write(&mut self, label: &mut Label) -> Result<()> {
+                fn write(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
                     if let Some(addr) = label.address {
                         let offset = addr as isize - (self.pos() as isize + 6);
 

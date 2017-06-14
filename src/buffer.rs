@@ -4,7 +4,8 @@ use std::ops::{Range, Deref, DerefMut};
 
 use byteorder::{ByteOrder, LittleEndian};
 
-use error::Result;
+use common::NoError;
+use error::Error;
 
 
 pub struct Buffer {
@@ -111,19 +112,19 @@ impl DerefMut for Buffer {
 
 
 pub trait Write<T> {
-    fn write(&mut self, value: T) -> Result<()>;
+    fn write(&mut self, value: T) -> Result<(), Error<NoError>>;
 }
 
 impl Write<()> for Buffer {
     #[inline]
-    fn write(&mut self, _value: ()) -> Result<()> {
+    fn write(&mut self, _value: ()) -> Result<(), Error<NoError>> {
         Ok(())
     }
 }
 
 impl Write<u8> for Buffer {
     #[inline]
-    fn write(&mut self, value: u8) -> Result<()> {
+    fn write(&mut self, value: u8) -> Result<(), Error<NoError>> {
         self.write_u8(value);
         Ok(())
     }
@@ -131,7 +132,7 @@ impl Write<u8> for Buffer {
 
 impl Write<u16> for Buffer {
     #[inline]
-    fn write(&mut self, value: u16) -> Result<()> {
+    fn write(&mut self, value: u16) -> Result<(), Error<NoError>> {
         self.write_u16(value);
         Ok(())
     }
@@ -139,7 +140,7 @@ impl Write<u16> for Buffer {
 
 impl Write<u32> for Buffer {
     #[inline]
-    fn write(&mut self, value: u32) -> Result<()> {
+    fn write(&mut self, value: u32) -> Result<(), Error<NoError>> {
         self.write_u32(value);
         Ok(())
     }
@@ -147,7 +148,7 @@ impl Write<u32> for Buffer {
 
 impl Write<u64> for Buffer {
     #[inline]
-    fn write(&mut self, value: u64) -> Result<()> {
+    fn write(&mut self, value: u64) -> Result<(), Error<NoError>> {
         self.write_u64(value);
         Ok(())
     }
@@ -155,7 +156,7 @@ impl Write<u64> for Buffer {
 
 impl Write<i8> for Buffer {
     #[inline]
-    fn write(&mut self, value: i8) -> Result<()> {
+    fn write(&mut self, value: i8) -> Result<(), Error<NoError>> {
         self.write_u8(value as u8);
         Ok(())
     }
@@ -163,7 +164,7 @@ impl Write<i8> for Buffer {
 
 impl Write<i32> for Buffer {
     #[inline]
-    fn write(&mut self, value: i32) -> Result<()> {
+    fn write(&mut self, value: i32) -> Result<(), Error<NoError>> {
         self.write_u32(value as u32);
         Ok(())
     }
@@ -171,7 +172,7 @@ impl Write<i32> for Buffer {
 
 impl Write<Option<u8>> for Buffer {
     #[inline]
-    fn write(&mut self, value: Option<u8>) -> Result<()> {
+    fn write(&mut self, value: Option<u8>) -> Result<(), Error<NoError>> {
         if let Some(value) = value {
             self.write_u8(value);
         }
@@ -181,17 +182,17 @@ impl Write<Option<u8>> for Buffer {
 
 impl<'a> Write<&'a [u8]> for Buffer {
     #[inline]
-    fn write(&mut self, value: &[u8]) -> Result<()> {
+    fn write(&mut self, value: &[u8]) -> Result<(), Error<NoError>> {
         self.write(value);
         Ok(())
     }
 }
 
 impl<F> Write<F> for Buffer
-    where F: FnOnce(&mut Buffer) -> Result<()>
+    where F: FnOnce(&mut Buffer) -> Result<(), Error<NoError>>
 {
     #[inline]
-    fn write(&mut self, f: F) -> Result<()> {
+    fn write(&mut self, f: F) -> Result<(), Error<NoError>> {
         f(self)
     }
 }

@@ -4,12 +4,30 @@ use buffer::{self, Buffer};
 use reg::Reg64;
 use ptr::{Scale, Scaled};
 use ptr::Ptr;
-use error::{Error, Result};
+use error::Error;
 
 
 /// This function helps the compiler infer the right lifetimes
 /// for the closures used in this crate
 pub fn closure<F, R>(f: F) -> F where F: FnOnce(&mut Buffer) -> R { f }
+
+
+pub enum NoError {}
+
+impl<E> From<Error<NoError>> for Error<E>
+    where E: ::std::error::Error
+{
+    fn from(error: Error<NoError>) -> Error<E> {
+        match error {
+            Error::InvalidOperands => Error::InvalidOperands,
+            Error::RexIncompatibleRegister(reg) => Error::RexIncompatibleRegister(reg),
+            Error::InvalidIndexRegister(reg) => Error::InvalidIndexRegister(reg),
+            Error::RedefinedLabel => Error::RedefinedLabel,
+            Error::LabelTooFarAway => Error::LabelTooFarAway,
+            Error::Custom(e) => match e {},
+        }
+    }
+}
 
 
 pub trait Register: Copy + 'static + fmt::Debug {
@@ -20,11 +38,11 @@ pub trait Register: Copy + 'static + fmt::Debug {
     fn is_encodable_with_rex(&self) -> bool;
     fn needs_rex(&self) -> bool;
     fn rm(&self) -> u8;
-    fn check_is_rex_compatible(&self) -> Result<()>;
+    fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>>;
 }
 
 
-pub fn rex_r<R>(r: R) -> Result<Option<u8>>
+pub fn rex_r<R>(r: R) -> Result<Option<u8>, Error<NoError>>
     where R: Register
 {
     if !r.needs_rex() {
@@ -38,7 +56,7 @@ pub fn rex_r<R>(r: R) -> Result<Option<u8>>
     Ok(Some(rex))
 }
 
-pub fn rex_x<X>(x: X) -> Result<Option<u8>>
+pub fn rex_x<X>(x: X) -> Result<Option<u8>, Error<NoError>>
     where X: Register
 {
     if !x.needs_rex() {
@@ -52,7 +70,7 @@ pub fn rex_x<X>(x: X) -> Result<Option<u8>>
     Ok(Some(rex))
 }
 
-pub fn rex_b<B>(b: B) -> Result<Option<u8>>
+pub fn rex_b<B>(b: B) -> Result<Option<u8>, Error<NoError>>
     where B: Register
 {
     if !b.needs_rex() {
@@ -66,7 +84,7 @@ pub fn rex_b<B>(b: B) -> Result<Option<u8>>
     Ok(Some(rex))
 }
 
-pub fn rex_rx<R, X>(r: R, x: X) -> Result<Option<u8>>
+pub fn rex_rx<R, X>(r: R, x: X) -> Result<Option<u8>, Error<NoError>>
     where R: Register, X: Register
 {
     if !r.needs_rex() && !x.needs_rex() {
@@ -84,7 +102,7 @@ pub fn rex_rx<R, X>(r: R, x: X) -> Result<Option<u8>>
     Ok(Some(rex))
 }
 
-pub fn rex_rb<R, B>(r: R, b: B) -> Result<Option<u8>>
+pub fn rex_rb<R, B>(r: R, b: B) -> Result<Option<u8>, Error<NoError>>
     where R: Register, B: Register
 {
     if !r.needs_rex() && !b.needs_rex() {
@@ -102,7 +120,7 @@ pub fn rex_rb<R, B>(r: R, b: B) -> Result<Option<u8>>
     Ok(Some(rex))
 }
 
-pub fn rex_xb<X, B>(x: X, b: B) -> Result<Option<u8>>
+pub fn rex_xb<X, B>(x: X, b: B) -> Result<Option<u8>, Error<NoError>>
     where X: Register, B: Register
 {
     if !x.needs_rex() && !b.needs_rex() {
@@ -120,7 +138,7 @@ pub fn rex_xb<X, B>(x: X, b: B) -> Result<Option<u8>>
     Ok(Some(rex))
 }
 
-pub fn rex_rxb<R, X, B>(r: R, x: X, b: B) -> Result<Option<u8>>
+pub fn rex_rxb<R, X, B>(r: R, x: X, b: B) -> Result<Option<u8>, Error<NoError>>
     where R: Register, X: Register, B: Register
 {
     if !r.needs_rex() && !x.needs_rex() && !b.needs_rex() {
@@ -141,13 +159,13 @@ pub fn rex_rxb<R, X, B>(r: R, x: X, b: B) -> Result<Option<u8>>
 }
 
 
-pub fn write_rex_b<B>(buffer: &mut Buffer, b: B) -> Result<()>
+pub fn write_rex_b<B>(buffer: &mut Buffer, b: B) -> Result<(), Error<NoError>>
     where B: Register
 {
     buffer::Write::write(buffer, try!(rex_b(b)))
 }
 
-pub fn write_rex_rb<R, B>(buffer: &mut Buffer, r: R, b: B) -> Result<()>
+pub fn write_rex_rb<R, B>(buffer: &mut Buffer, r: R, b: B) -> Result<(), Error<NoError>>
     where R: Register, B: Register
 {
     buffer::Write::write(buffer, try!(rex_rb(r, b)))
@@ -173,7 +191,7 @@ pub fn sib(scale: u8, index: u8, base: u8) -> u8 {
 
 
 #[inline]
-pub fn write_reg_disp(buffer: &mut Buffer, reg: u8, disp: i32) -> Result<()> {
+pub fn write_reg_disp(buffer: &mut Buffer, reg: u8, disp: i32) -> Result<(), Error<NoError>> {
     buffer.write_u8(modrm(0, reg, 4));
     buffer.write_u8(sib(0, 4, 5));
     buffer.write_u32(disp as u32);
@@ -181,7 +199,7 @@ pub fn write_reg_disp(buffer: &mut Buffer, reg: u8, disp: i32) -> Result<()> {
 }
 
 #[inline]
-pub fn write_reg_base(buffer: &mut Buffer, reg: u8, base: Reg64) -> Result<()> {
+pub fn write_reg_base(buffer: &mut Buffer, reg: u8, base: Reg64) -> Result<(), Error<NoError>> {
     if base.rm() == 5 { // rbp, r13
         buffer.write_u8(modrm(1, reg, base.rm()));
         buffer.write_u8(0);
@@ -195,7 +213,7 @@ pub fn write_reg_base(buffer: &mut Buffer, reg: u8, base: Reg64) -> Result<()> {
 }
 
 #[inline]
-pub fn write_reg_base_disp8(buffer: &mut Buffer, reg: u8, base: Reg64, disp: i8) -> Result<()> {
+pub fn write_reg_base_disp8(buffer: &mut Buffer, reg: u8, base: Reg64, disp: i8) -> Result<(), Error<NoError>> {
     buffer.write_u8(modrm(1, reg, base.rm()));
     if base.rm() == 4 { // rsp, r12
         buffer.write_u8(sib(0, 4, 4));
@@ -205,7 +223,7 @@ pub fn write_reg_base_disp8(buffer: &mut Buffer, reg: u8, base: Reg64, disp: i8)
 }
 
 #[inline]
-pub fn write_reg_base_disp32(buffer: &mut Buffer, reg: u8, base: Reg64, disp: i32) -> Result<()> {
+pub fn write_reg_base_disp32(buffer: &mut Buffer, reg: u8, base: Reg64, disp: i32) -> Result<(), Error<NoError>> {
     buffer.write_u8(modrm(2, reg, base.rm()));
     if base.rm() == 4 { // rsp, r12
         buffer.write_u8(sib(0, 4, 4));
@@ -215,7 +233,7 @@ pub fn write_reg_base_disp32(buffer: &mut Buffer, reg: u8, base: Reg64, disp: i3
 }
 
 #[inline]
-pub fn write_reg_index(buffer: &mut Buffer, reg: u8, index: Reg64, scale: Scale) -> Result<()> {
+pub fn write_reg_index(buffer: &mut Buffer, reg: u8, index: Reg64, scale: Scale) -> Result<(), Error<NoError>> {
     if index.rm() == 4 { // rsp, r12
         return Err(Error::InvalidIndexRegister(index));
     }
@@ -226,7 +244,7 @@ pub fn write_reg_index(buffer: &mut Buffer, reg: u8, index: Reg64, scale: Scale)
 }
 
 #[inline]
-pub fn write_reg_index_disp(buffer: &mut Buffer, reg: u8, index: Reg64, scale: Scale, disp: i32) -> Result<()> {
+pub fn write_reg_index_disp(buffer: &mut Buffer, reg: u8, index: Reg64, scale: Scale, disp: i32) -> Result<(), Error<NoError>> {
     if index.rm() == 4 { // rsp, r12
         return Err(Error::InvalidIndexRegister(index));
     }
@@ -237,7 +255,7 @@ pub fn write_reg_index_disp(buffer: &mut Buffer, reg: u8, index: Reg64, scale: S
 }
 
 #[inline]
-pub fn write_reg_base_index(buffer: &mut Buffer, reg: u8, base: Reg64, index: Reg64, scale: Scale) -> Result<()> {
+pub fn write_reg_base_index(buffer: &mut Buffer, reg: u8, base: Reg64, index: Reg64, scale: Scale) -> Result<(), Error<NoError>> {
     if index.rm() == 4 { // rsp, r12
         return Err(Error::InvalidIndexRegister(index));
     }
@@ -253,7 +271,7 @@ pub fn write_reg_base_index(buffer: &mut Buffer, reg: u8, base: Reg64, index: Re
 }
 
 #[inline]
-pub fn write_reg_base_index_disp8(buffer: &mut Buffer, reg: u8, base: Reg64, index: Reg64, scale: Scale, disp: i8) -> Result<()> {
+pub fn write_reg_base_index_disp8(buffer: &mut Buffer, reg: u8, base: Reg64, index: Reg64, scale: Scale, disp: i8) -> Result<(), Error<NoError>> {
     if index.rm() == 4 { // rsp, r12
         return Err(Error::InvalidIndexRegister(index));
     }
@@ -264,7 +282,7 @@ pub fn write_reg_base_index_disp8(buffer: &mut Buffer, reg: u8, base: Reg64, ind
 }
 
 #[inline]
-pub fn write_reg_base_index_disp32(buffer: &mut Buffer, reg: u8, base: Reg64, index: Reg64, scale: Scale, disp: i32) -> Result<()> {
+pub fn write_reg_base_index_disp32(buffer: &mut Buffer, reg: u8, base: Reg64, index: Reg64, scale: Scale, disp: i32) -> Result<(), Error<NoError>> {
     if index.rm() == 4 { // rsp, r12
         return Err(Error::InvalidIndexRegister(index));
     }
@@ -276,7 +294,7 @@ pub fn write_reg_base_index_disp32(buffer: &mut Buffer, reg: u8, base: Reg64, in
 
 
 pub trait Rex<T> {
-    fn rex(ptr: Self, arg: T) -> Result<Option<u8>>;
+    fn rex(ptr: Self, arg: T) -> Result<Option<u8>, Error<NoError>>;
 }
 
 macro_rules! rex {
@@ -289,7 +307,7 @@ macro_rules! rex {
         $($rest:tt)*
     ) => {
         impl<D, $($A : $bound),*> Rex<$T> for Ptr<$B, $X, D> {
-            fn rex($p: Ptr<$B, $X, D>, $arg: $T) -> Result<Option<u8>> {
+            fn rex($p: Ptr<$B, $X, D>, $arg: $T) -> Result<Option<u8>, Error<NoError>> {
                 $e
             }
         }
@@ -302,7 +320,7 @@ macro_rules! rex {
         $($rest:tt)*
     ) => {
         impl<D> Rex<$T> for Ptr<$B, $X, D> {
-            fn rex($p: Ptr<$B, $X, D>, $arg: $T) -> Result<Option<u8>> {
+            fn rex($p: Ptr<$B, $X, D>, $arg: $T) -> Result<Option<u8>, Error<NoError>> {
                 $e
             }
         }
@@ -328,7 +346,7 @@ rex! {
 
 
 pub trait Args<T> {
-    fn write(buffer: &mut Buffer, ptr: Self, arg: T) -> Result<()>;
+    fn write(buffer: &mut Buffer, ptr: Self, arg: T) -> Result<(), Error<NoError>>;
 }
 
 macro_rules! args {
@@ -341,7 +359,7 @@ macro_rules! args {
     ) => {
         impl Args<$T> for Ptr<$B, $X, $D> {
             #[inline]
-            fn write(buffer: &mut Buffer, $p: Ptr<$B, $X, $D>, $arg: $T) -> Result<()> {
+            fn write(buffer: &mut Buffer, $p: Ptr<$B, $X, $D>, $arg: $T) -> Result<(), Error<NoError>> {
                 $(
                     try!(buffer::Write::write(buffer, $e));
                 )*

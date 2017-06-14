@@ -5,7 +5,7 @@ use ptr::Scaled;
 use ptr::{Ptr, BytePtr, WordPtr, DWordPtr, QWordPtr};
 use ptr::{BytePointer, WordPointer, DWordPointer, QWordPointer};
 use operand::Operand;
-use error::{Error, Result};
+use error::Error;
 use fixup::{HoleKind, Hole};
 
 // used in several instructions to force REX.W
@@ -23,8 +23,8 @@ fn size<R>(r: R) -> Option<u8>
 }
 
 
-trait Op1<T> {
-    fn write(&mut self, opcode: &[u8], op_index: u8, arg: T) -> Result<()>;
+trait Op1<T>: EmitBytes {
+    fn write(&mut self, opcode: &[u8], op_index: u8, arg: T) -> Result<(), Error<Self::Error>>;
 }
 
 op! { Op1 {
@@ -34,8 +34,8 @@ op! { Op1 {
 }}
 
 
-trait Op2<D, S> {
-    fn write(&mut self, opcode: &[u8], reg: D, rm: S) -> Result<()>;
+trait Op2<D, S>: EmitBytes {
+    fn write(&mut self, opcode: &[u8], reg: D, rm: S) -> Result<(), Error<Self::Error>>;
 }
 
 op! { Op2 {
@@ -49,7 +49,7 @@ macro_rules! forward1 {
     ($Trait:ident { $($T:ty $(, $a:ident : $A:ty)* => $opcode:expr, $op_index:expr;)* }) => {
         $(
             impl<W> $Trait<$T> for W where W: EmitBytes {
-                fn write(&mut self, $($a: $A ,)* arg: $T) -> Result<()> {
+                fn write(&mut self, $($a: $A ,)* arg: $T) -> Result<(), Error<Self::Error>> {
                     Op1::write(self, $opcode, $op_index, arg)
                 }
             }
@@ -61,7 +61,7 @@ macro_rules! forward2 {
     ($Trait:ident { $($D:ty, $S:ty $(, $a:ident : $A:ty)* => $opcode:expr;)* }) => {
         $(
             impl<W> $Trait<$D, $S> for W where W: EmitBytes {
-                fn write(&mut self, $($a: $A ,)* dst: $D, src: $S) -> Result<()> {
+                fn write(&mut self, $($a: $A ,)* dst: $D, src: $S) -> Result<(), Error<Self::Error>> {
                     Op2::write(self, $opcode, dst, src)
                 }
             }
@@ -223,12 +223,12 @@ mod cond {
 macro_rules! binary_arith_op {
     ($(($Op:ident, $op:ident)),*) => {
         $(
-        pub trait $Op<D, S> {
-            fn write(&mut self, dst: D, src: S) -> Result<()>;
+        pub trait $Op<D, S>: EmitBytes {
+            fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
         }
 
         impl<W> $Op<Operand, Operand> for W where W: EmitBytes {
-            fn write(&mut self, dst: Operand, src: Operand) -> Result<()> {
+            fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match (dst, src) {
                     (Reg8(d), Imm8(s)) => $Op::write(self, d, s),
@@ -412,12 +412,12 @@ binary_arith_op! {
 macro_rules! shift_op {
     ($(($Op:ident, $op:ident)),*) => {
         $(
-        pub trait $Op<D, S> {
-            fn write(&mut self, dst: D, src: S) -> Result<()>;
+        pub trait $Op<D, S>: EmitBytes {
+            fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
         }
 
         impl<W> $Op<Operand, Operand> for W where W: EmitBytes {
-            fn write(&mut self, dst: Operand, src: Operand) -> Result<()> {
+            fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match (dst, src) {
                     (Reg8(d), Imm8(s)) => $Op::write(self, d, s),
@@ -465,12 +465,12 @@ shift_op! {
 macro_rules! unary_arith_op {
     ($( ($Op:ident, $index:expr) ),*) => {
         $(
-            pub trait $Op<T> {
-                fn write(&mut self, arg: T) -> Result<()>;
+            pub trait $Op<T>: EmitBytes {
+                fn write(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
             }
 
             impl<W> $Op<Operand> for W where W: EmitBytes {
-                fn write(&mut self, arg: Operand) -> Result<()> {
+                fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
                     use operand::Operand::*;
                     match arg {
                         Reg8(a) => $Op::write(self, a),
@@ -527,12 +527,12 @@ unary_arith_op! {
 }
 
 
-pub trait Inc<T> {
-    fn write(&mut self, arg: T) -> Result<()>;
+pub trait Inc<T>: EmitBytes {
+    fn write(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Inc<Operand> for W where W: EmitBytes {
-    fn write(&mut self, arg: Operand) -> Result<()> {
+    fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
             Reg8(a) => Inc::write(self, a),
@@ -570,12 +570,12 @@ op_ptr! { Inc {
 }}
 
 
-pub trait Dec<T> {
-    fn write(&mut self, arg: T) -> Result<()>;
+pub trait Dec<T>: EmitBytes {
+    fn write(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Dec<Operand> for W where W: EmitBytes {
-    fn write(&mut self, arg: Operand) -> Result<()> {
+    fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
             Reg8(a) => Dec::write(self, a),
@@ -613,12 +613,12 @@ op_ptr! { Dec {
 }}
 
 
-pub trait Test<D, S> {
-    fn write(&mut self, dst: D, src: S) -> Result<()>;
+pub trait Test<D, S>: EmitBytes {
+    fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Test<Operand, Operand> for W where W: EmitBytes {
-    fn write(&mut self, dst: Operand, src: Operand) -> Result<()> {
+    fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
             (Reg8(d), Imm8(s)) => Test::write(self, d, s),
@@ -773,12 +773,12 @@ op_ptr! { Test {
 }}
 
 
-pub trait Mov<D, S> {
-    fn write(&mut self, dst: D, src: S) -> Result<()>;
+pub trait Mov<D, S>: EmitBytes {
+    fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Mov<Operand, Operand> for W where W: EmitBytes {
-    fn write(&mut self, dst: Operand, src: Operand) -> Result<()> {
+    fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
             (Reg8(d), Imm8(s)) => Mov::write(self, d, s),
@@ -892,12 +892,12 @@ op_ptr! { Mov {
 }}
 
 
-pub trait Push<S> {
-    fn write(&mut self, src: S) -> Result<()>;
+pub trait Push<S>: EmitBytes {
+    fn write(&mut self, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Push<Operand> for W where W: EmitBytes {
-    fn write(&mut self, arg: Operand) -> Result<()> {
+    fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
             Imm8(a) => Push::write(self, a),
@@ -931,12 +931,12 @@ op_ptr! { Push {
 }}
 
 
-pub trait Pop<D> {
-    fn write(&mut self, dst: D) -> Result<()>;
+pub trait Pop<D>: EmitBytes {
+    fn write(&mut self, dst: D) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Pop<Operand> for W where W: EmitBytes {
-    fn write(&mut self, arg: Operand) -> Result<()> {
+    fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
             Reg16(a) => Pop::write(self, a),
@@ -964,12 +964,12 @@ op_ptr! { Pop {
 }}
 
 
-pub trait Call<T> {
-    fn write(&mut self, arg: T) -> Result<()>;
+pub trait Call<T>: EmitBytes {
+    fn write(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Call<Operand> for W where W: EmitBytes {
-    fn write(&mut self, arg: Operand) -> Result<()> {
+    fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
             Reg64(a) => Call::write(self, a),
@@ -983,14 +983,14 @@ op! { Call {
 }}
 
 
-pub trait Jmp<T> {
+pub trait Jmp<T>: EmitBytes {
     type Return;
-    fn write(&mut self, arg: T) -> Result<Self::Return>;
+    fn write(&mut self, arg: T) -> Result<Self::Return, Error<Self::Error>>;
 }
 
 impl<W> Jmp<Operand> for W where W: EmitBytes {
     type Return = ();
-    fn write(&mut self, arg: Operand) -> Result<()> {
+    fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
             Offset8(a) => Jmp::write(self, a),
@@ -1002,7 +1002,7 @@ impl<W> Jmp<Operand> for W where W: EmitBytes {
 
 impl<W> Jmp<HoleKind> for W where W: EmitBytes {
     type Return = Hole;
-    fn write(&mut self, arg: HoleKind) -> Result<Hole> {
+    fn write(&mut self, arg: HoleKind) -> Result<Hole, Error<Self::Error>> {
         use fixup::HoleKind::*;
         match arg {
             Rel8 => {
@@ -1023,12 +1023,12 @@ op! { Jmp => () {
 }}
 
 
-pub trait Ret {
-    fn write(&mut self) -> Result<()>;
+pub trait Ret: EmitBytes {
+    fn write(&mut self) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Ret for W where W: EmitBytes {
-    fn write(&mut self) -> Result<()> {
+    fn write(&mut self) -> Result<(), Error<Self::Error>> {
         try!(self.write(&[0xc3]));
         Ok(())
     }
@@ -1038,12 +1038,12 @@ impl<W> Ret for W where W: EmitBytes {
 macro_rules! cc_op {
     ($( ($cond:ident, $Cmov:ident, $J:ident, $Set:ident) ),*) => {
         $(
-        pub trait $Cmov<D, S> {
-            fn write(&mut self, dst: D, src: S) -> Result<()>;
+        pub trait $Cmov<D, S>: EmitBytes {
+            fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
         }
 
         impl<W> $Cmov<Operand, Operand> for W where W: EmitBytes {
-            fn write(&mut self, dst: Operand, src: Operand) -> Result<()> {
+            fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match (dst, src) {
                     (Reg16(d), Reg16(s)) => $Cmov::write(self, d, s),
@@ -1086,14 +1086,14 @@ macro_rules! cc_op {
         }}
 
 
-        pub trait $J<T> {
+        pub trait $J<T>: EmitBytes {
             type Return;
-            fn write(&mut self, arg: T) -> Result<Self::Return>;
+            fn write(&mut self, arg: T) -> Result<Self::Return, Error<Self::Error>>;
         }
 
         impl<W> $J<Operand> for W where W: EmitBytes {
             type Return = ();
-            fn write(&mut self, arg: Operand) -> Result<()> {
+            fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match arg {
                     Offset8(a) => $J::write(self, a),
@@ -1105,7 +1105,7 @@ macro_rules! cc_op {
 
         impl<W> $J<HoleKind> for W where W: EmitBytes {
             type Return = Hole;
-            fn write(&mut self, arg: HoleKind) -> Result<Hole> {
+            fn write(&mut self, arg: HoleKind) -> Result<Hole, Error<Self::Error>> {
                 use fixup::HoleKind::*;
                 match arg {
                     Rel8 => {
@@ -1127,12 +1127,12 @@ macro_rules! cc_op {
         }}
 
 
-        pub trait $Set<D> {
-            fn write(&mut self, dst: D) -> Result<()>;
+        pub trait $Set<D>: EmitBytes {
+            fn write(&mut self, dst: D) -> Result<(), Error<Self::Error>>;
         }
 
         impl<W> $Set<Operand> for W where W: EmitBytes {
-            fn write(&mut self, arg: Operand) -> Result<()> {
+            fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match arg {
                     Reg8(a) => $Set::write(self, a),
@@ -1173,12 +1173,12 @@ cc_op! {
 }
 
 
-pub trait Lea<D, S> {
-    fn write(&mut self, dst: D, src: S) -> Result<()>;
+pub trait Lea<D, S>: EmitBytes {
+    fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Lea<Operand, Operand> for W where W: EmitBytes {
-    fn write(&mut self, dst: Operand, src: Operand) -> Result<()> {
+    fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
             (Reg16(d), WordPointer(s)) => Lea::write(self, d, s),
@@ -1212,12 +1212,12 @@ op_ptr! { Lea {
 }}
 
 
-pub trait Movzx<D, S> {
-    fn write(&mut self, dst: D, src: S) -> Result<()>;
+pub trait Movzx<D, S>: EmitBytes {
+    fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Movzx<Operand, Operand> for W where W: EmitBytes {
-    fn write(&mut self, dst: Operand, src: Operand) -> Result<()> {
+    fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
             (Reg16(d), Reg8(s)) => Movzx::write(self, d, s),
@@ -1277,12 +1277,12 @@ op_ptr! { Movzx {
 }}
 
 
-pub trait Movsx<D, S> {
-    fn write(&mut self, dst: D, src: S) -> Result<()>;
+pub trait Movsx<D, S>: EmitBytes {
+    fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Movsx<Operand, Operand> for W where W: EmitBytes {
-    fn write(&mut self, dst: Operand, src: Operand) -> Result<()> {
+    fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
             (Reg16(d), Reg8(s)) => Movsx::write(self, d, s),
@@ -1342,24 +1342,24 @@ op_ptr! { Movsx {
 }}
 
 
-pub trait Cdq {
-    fn write(&mut self) -> Result<()>;
+pub trait Cdq: EmitBytes {
+    fn write(&mut self) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Cdq for W where W: EmitBytes {
-    fn write(&mut self) -> Result<()> {
+    fn write(&mut self) -> Result<(), Error<Self::Error>> {
         try!(self.write(&[0x99]));
         Ok(())
     }
 }
 
 
-pub trait Xchg<D, S> {
-    fn write(&mut self, dst: D, src: S) -> Result<()>;
+pub trait Xchg<D, S>: EmitBytes {
+    fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Xchg<Operand, Operand> for W where W: EmitBytes {
-    fn write(&mut self, dst: Operand, src: Operand) -> Result<()> {
+    fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
             (Reg8(d), Reg8(s)) => Xchg::write(self, d, s),
