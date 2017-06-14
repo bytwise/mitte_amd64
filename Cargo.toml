@@ -1,6 +1,6 @@
 [package]
 name = "mitte_amd64"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["bytewise <bytewise@fastmail.com>"]
 description = "A dynamic amd64 assembler"
 repository = "https://github.com/bytwise/mitte_amd64"
