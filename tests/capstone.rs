@@ -2019,14 +2019,43 @@ macro_rules! test_op2 {
 
 
 macro_rules! test_cmovcc {
-    ($mnemonic:expr, $f:path) => {
-        test_reg16_reg16($mnemonic, $f);
-        test_reg32_reg32($mnemonic, $f);
-        test_reg64_reg64($mnemonic, $f);
+    ($( ($test:ident, $mnemonic:expr, $f:path), )*) => {
+        $(
+            #[test]
+            fn $test() {
+                test_reg16_reg16($mnemonic, $f);
+                test_reg32_reg32($mnemonic, $f);
+                test_reg64_reg64($mnemonic, $f);
 
-        test_reg16_word_ptr($mnemonic, $f);
-        test_reg32_dword_ptr($mnemonic, $f);
-        test_reg64_qword_ptr($mnemonic, $f);
+                test_reg16_word_ptr($mnemonic, $f);
+                test_reg32_dword_ptr($mnemonic, $f);
+                test_reg64_qword_ptr($mnemonic, $f);
+            }
+        )*
+    }
+}
+
+macro_rules! test_jcc {
+    ($( ($test:ident, $mnemonic:expr, $f:path), )*) => {
+        $(
+            #[test]
+            fn $test() {
+                test_off8($mnemonic, $f);
+                test_off32($mnemonic, $f);
+            }
+        )*
+    }
+}
+
+macro_rules! test_setcc {
+    ($( ($test:ident, $mnemonic:expr, $f:path), )*) => {
+        $(
+            #[test]
+            fn $test() {
+                test_reg8($mnemonic, $f);
+                test_byte_ptr($mnemonic, $f);
+            }
+        )*
     }
 }
 
@@ -2243,157 +2272,40 @@ fn test_ret() {
     test_unit("ret", Emit::ret);
 }
 
-#[test]
-fn test_cmove() {
-    test_cmovcc!("cmove", Emit::cmove);
+test_cmovcc! {
+    (test_cmova,   "cmova",  Emit::cmova),
+    (test_cmove,   "cmove",  Emit::cmove),
+    (test_cmovg,   "cmovg",  Emit::cmovg),
+    (test_cmovge,  "cmovge", Emit::cmovge),
+    (test_cmovl,   "cmovl",  Emit::cmovl),
+    (test_cmovle,  "cmovle", Emit::cmovle),
+    (test_cmovne,  "cmovne", Emit::cmovne),
+    (test_cmovnz,  "cmovne", Emit::cmovnz),
+    (test_cmovz,   "cmove",  Emit::cmovz),
 }
 
-#[test]
-fn test_cmovz() {
-    test_cmovcc!("cmove", Emit::cmovz);
+test_jcc! {
+    (test_ja,   "ja",  Emit::ja),
+    (test_je,   "je",  Emit::je),
+    (test_jg,   "jg",  Emit::jg),
+    (test_jge,  "jge", Emit::jge),
+    (test_jl,   "jl",  Emit::jl),
+    (test_jle,  "jle", Emit::jle),
+    (test_jne,  "jne", Emit::jne),
+    (test_jnz,  "jne", Emit::jnz),
+    (test_jz,   "je",  Emit::jz),
 }
 
-#[test]
-fn test_cmovne() {
-    test_cmovcc!("cmovne", Emit::cmovne);
-}
-
-#[test]
-fn test_cmovnz() {
-    test_cmovcc!("cmovne", Emit::cmovnz);
-}
-
-#[test]
-fn test_cmova() {
-    test_cmovcc!("cmova", Emit::cmova);
-}
-
-#[test]
-fn test_cmovl() {
-    test_cmovcc!("cmovl", Emit::cmovl);
-}
-
-#[test]
-fn test_cmovge() {
-    test_cmovcc!("cmovge", Emit::cmovge);
-}
-
-#[test]
-fn test_cmovle() {
-    test_cmovcc!("cmovle", Emit::cmovle);
-}
-
-#[test]
-fn test_cmovg() {
-    test_cmovcc!("cmovg", Emit::cmovg);
-}
-
-#[test]
-fn test_je() {
-    test_off8("je", Emit::je);
-    test_off32("je", Emit::je);
-}
-
-#[test]
-fn test_jz() {
-    test_off8("je", Emit::jz);
-    test_off32("je", Emit::jz);
-}
-
-#[test]
-fn test_jne() {
-    test_off8("jne", Emit::jne);
-    test_off32("jne", Emit::jne);
-}
-
-#[test]
-fn test_jnz() {
-    test_off8("jne", Emit::jnz);
-    test_off32("jne", Emit::jnz);
-}
-
-#[test]
-fn test_ja() {
-    test_off8("ja", Emit::ja);
-    test_off32("ja", Emit::ja);
-}
-
-#[test]
-fn test_jl() {
-    test_off8("jl", Emit::jl);
-    test_off32("jl", Emit::jl);
-}
-
-#[test]
-fn test_jge() {
-    test_off8("jge", Emit::jge);
-    test_off32("jge", Emit::jge);
-}
-
-#[test]
-fn test_jle() {
-    test_off8("jle", Emit::jle);
-    test_off32("jle", Emit::jle);
-}
-
-#[test]
-fn test_jg() {
-    test_off8("jg", Emit::jg);
-    test_off32("jg", Emit::jg);
-}
-
-#[test]
-fn test_sete() {
-    test_reg8("sete", Emit::sete);
-    test_byte_ptr("sete", Emit::sete);
-}
-
-#[test]
-fn test_setz() {
-    test_reg8("sete", Emit::setz);
-    test_byte_ptr("sete", Emit::setz);
-}
-
-#[test]
-fn test_setne() {
-    test_reg8("setne", Emit::setne);
-    test_byte_ptr("setne", Emit::setne);
-}
-
-#[test]
-fn test_setnz() {
-    test_reg8("setne", Emit::setnz);
-    test_byte_ptr("setne", Emit::setnz);
-}
-
-#[test]
-fn test_seta() {
-    test_reg8("seta", Emit::seta);
-    test_byte_ptr("seta", Emit::seta);
-}
-
-#[test]
-fn test_setl() {
-    test_reg8("setl", Emit::setl);
-    test_byte_ptr("setl", Emit::setl);
-}
-
-#[test]
-fn test_setge() {
-    test_reg8("setge", Emit::setge);
-    test_byte_ptr("setge", Emit::setge);
-}
-
-#[test]
-fn test_setle() {
-    test_reg8("setle", Emit::setle);
-    test_byte_ptr("setle", Emit::setle);
-}
-
-#[test]
-fn test_setg() {
-    test_reg8("setg", Emit::setg);
-    test_byte_ptr("setg", Emit::setg);
+test_setcc! {
+    (test_seta,   "seta",  Emit::seta),
+    (test_sete,   "sete",  Emit::sete),
+    (test_setg,   "setg",  Emit::setg),
+    (test_setge,  "setge", Emit::setge),
+    (test_setl,   "setl",  Emit::setl),
+    (test_setle,  "setle", Emit::setle),
+    (test_setne,  "setne", Emit::setne),
+    (test_setnz,  "setne", Emit::setnz),
+    (test_setz,   "sete",  Emit::setz),
 }
 
 #[test]
