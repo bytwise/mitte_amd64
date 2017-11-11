@@ -208,15 +208,36 @@ const SAR: ShiftOpcodes = ShiftOpcodes {
 mod cond {
     pub struct Cond(pub u8);
 
-    pub const E: Cond = Cond(0x04);
-    pub const Z: Cond = E;
-    pub const NE: Cond = Cond(0x5);
-    pub const NZ: Cond = NE;
     pub const A: Cond = Cond(0x7);
-    pub const L: Cond = Cond(0xc);
-    pub const GE: Cond = Cond(0xd);
-    pub const LE: Cond = Cond(0xe);
+    pub const AE: Cond = Cond(0x3);
+    pub const B: Cond = Cond(0x2);
+    pub const BE: Cond = Cond(0x6);
+    pub const C: Cond = Cond(0x2);
+    pub const E: Cond = Cond(0x4);
     pub const G: Cond = Cond(0xf);
+    pub const GE: Cond = Cond(0xd);
+    pub const L: Cond = Cond(0xc);
+    pub const LE: Cond = Cond(0xe);
+    pub const NA: Cond = Cond(0x6);
+    pub const NAE: Cond = Cond(0x2);
+    pub const NB: Cond = Cond(0x3);
+    pub const NBE: Cond = Cond(0x7);
+    pub const NC: Cond = Cond(0x3);
+    pub const NE: Cond = Cond(0x5);
+    pub const NG: Cond = Cond(0xe);
+    pub const NGE: Cond = Cond(0xc);
+    pub const NL: Cond = Cond(0xd);
+    pub const NLE: Cond = Cond(0xf);
+    pub const NO: Cond = Cond(0x1);
+    pub const NP: Cond = Cond(0xb);
+    pub const NS: Cond = Cond(0x9);
+    pub const NZ: Cond = Cond(0x5);
+    pub const O: Cond = Cond(0x0);
+    pub const P: Cond = Cond(0xa);
+    pub const PE: Cond = Cond(0xa);
+    pub const PO: Cond = Cond(0xb);
+    pub const S: Cond = Cond(0x8);
+    pub const Z: Cond = Cond(0x4);
 }
 
 
@@ -1161,15 +1182,36 @@ macro_rules! cc_op {
 }
 
 cc_op! {
-    (E,  Cmove,  Je,  Sete),
-    (Z,  Cmovz,  Jz,  Setz),
-    (NE, Cmovne, Jne, Setne),
-    (NZ, Cmovnz, Jnz, Setnz),
-    (A,  Cmova,  Ja,  Seta),
-    (L,  Cmovl,  Jl,  Setl),
-    (GE, Cmovge, Jge, Setge),
-    (LE, Cmovle, Jle, Setle),
-    (G,  Cmovg,  Jg,  Setg)
+    (A,   Cmova,   Ja,   Seta),
+    (AE,  Cmovae,  Jae,  Setae),
+    (B,   Cmovb,   Jb,   Setb),
+    (BE,  Cmovbe,  Jbe,  Setbe),
+    (C,   Cmovc,   Jc,   Setc),
+    (E,   Cmove,   Je,   Sete),
+    (G,   Cmovg,   Jg,   Setg),
+    (GE,  Cmovge,  Jge,  Setge),
+    (L,   Cmovl,   Jl,   Setl),
+    (LE,  Cmovle,  Jle,  Setle),
+    (NA,  Cmovna,  Jna,  Setna),
+    (NAE, Cmovnae, Jnae, Setnae),
+    (NB,  Cmovnb,  Jnb,  Setnb),
+    (NBE, Cmovnbe, Jnbe, Setnbe),
+    (NC,  Cmovnc,  Jnc,  Setnc),
+    (NE,  Cmovne,  Jne,  Setne),
+    (NG,  Cmovng,  Jng,  Setng),
+    (NGE, Cmovnge, Jnge, Setnge),
+    (NL,  Cmovnl,  Jnl,  Setnl),
+    (NLE, Cmovnle, Jnle, Setnle),
+    (NO,  Cmovno,  Jno,  Setno),
+    (NP,  Cmovnp,  Jnp,  Setnp),
+    (NS,  Cmovns,  Jns,  Setns),
+    (NZ,  Cmovnz,  Jnz,  Setnz),
+    (O,   Cmovo,   Jo,   Seto),
+    (P,   Cmovp,   Jp,   Setp),
+    (PE,  Cmovpe,  Jpe,  Setpe),
+    (PO,  Cmovpo,  Jpo,  Setpo),
+    (S,   Cmovs,   Js,   Sets),
+    (Z,   Cmovz,   Jz,   Setz)
 }
 
 

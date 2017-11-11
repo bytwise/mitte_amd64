@@ -1,7 +1,39 @@
 use EmitBytes;
 use error::Error;
 use fixup::{HoleKind, Hole, Fixup};
-use amd64::{Jmp, Je, Jz, Jne, Jnz, Ja, Jl, Jge, Jle, Jg};
+use amd64::Jmp;
+use amd64::{
+    Ja,
+    Jae,
+    Jb,
+    Jbe,
+    Jc,
+    Je,
+    Jg,
+    Jge,
+    Jl,
+    Jle,
+    Jna,
+    Jnae,
+    Jnb,
+    Jnbe,
+    Jnc,
+    Jne,
+    Jng,
+    Jnge,
+    Jnl,
+    Jnle,
+    Jno,
+    Jnp,
+    Jns,
+    Jnz,
+    Jo,
+    Jp,
+    Jpe,
+    Jpo,
+    Js,
+    Jz
+};
 
 
 pub trait BindLabel: EmitBytes {
@@ -91,7 +123,38 @@ macro_rules! jcc {
     };
 }
 
-jcc! { Je, Jz, Jne, Jnz, Ja, Jl, Jge, Jle, Jg }
+jcc! {
+    Ja,
+    Jae,
+    Jb,
+    Jbe,
+    Jc,
+    Je,
+    Jg,
+    Jge,
+    Jl,
+    Jle,
+    Jna,
+    Jnae,
+    Jnb,
+    Jnbe,
+    Jnc,
+    Jne,
+    Jng,
+    Jnge,
+    Jnl,
+    Jnle,
+    Jno,
+    Jnp,
+    Jns,
+    Jnz,
+    Jo,
+    Jp,
+    Jpe,
+    Jpo,
+    Js,
+    Jz
+}
 
 
 #[cfg(test)]
