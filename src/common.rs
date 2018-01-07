@@ -1,15 +1,10 @@
 use std::fmt;
 
-use buffer::{self, Buffer};
+use buffer::Buffer;
 use reg::Reg64;
 use ptr::{Scale, Scaled};
 use ptr::Ptr;
 use error::Error;
-
-
-/// This function helps the compiler infer the right lifetimes
-/// for the closures used in this crate
-pub fn closure<F, R>(f: F) -> F where F: FnOnce(&mut Buffer) -> R { f }
 
 
 pub enum NoError {}
@@ -338,66 +333,83 @@ rex! {
 }
 
 
-pub trait Args<T> {
-    fn write(buffer: &mut Buffer, ptr: Self, arg: T) -> Result<(), Error<NoError>>;
+pub trait Args {
+    fn write(buffer: &mut Buffer, ptr: Self, reg: u8) -> Result<(), Error<NoError>>;
 }
 
-macro_rules! args {
-    () => {};
-
-    (
-        $p:ident : Ptr<$B:ty, $X:ty, $D:ty>,
-        $arg:ident : $T:ty => $($e:expr),*;
-        $($rest:tt)*
-    ) => {
-        impl Args<$T> for Ptr<$B, $X, $D> {
-            #[inline]
-            fn write(buffer: &mut Buffer, $p: Ptr<$B, $X, $D>, $arg: $T) -> Result<(), Error<NoError>> {
-                $(
-                    try!(buffer::Write::write(buffer, $e));
-                )*
-                Ok(())
-            }
-        }
-        args! { $($rest)* }
-    };
+impl Args for Ptr<(), (), i8> {
+    #[inline]
+    fn write(buffer: &mut Buffer, p: Self, reg: u8) -> Result<(), Error<NoError>> {
+        write_reg_disp(buffer, reg, p.disp as i32)
+    }
 }
 
-args! {
-    p: Ptr<(), (), i8>, reg: u8 =>
-        closure(|buffer| write_reg_disp(buffer, reg, p.disp as i32));
+impl Args for Ptr<(), (), i32> {
+    #[inline]
+    fn write(buffer: &mut Buffer, p: Self, reg: u8) -> Result<(), Error<NoError>> {
+        write_reg_disp(buffer, reg, p.disp)
+    }
+}
 
-    p: Ptr<(), (), i32>, reg: u8 =>
-        closure(|buffer| write_reg_disp(buffer, reg, p.disp));
+impl Args for Ptr<Reg64, (), ()> {
+    #[inline]
+    fn write(buffer: &mut Buffer, p: Self, reg: u8) -> Result<(), Error<NoError>> {
+        write_reg_base(buffer, reg, p.base)
+    }
+}
 
-    p: Ptr<Reg64, (), ()>, reg: u8 =>
-        closure(|buffer| write_reg_base(buffer, reg, p.base));
+impl Args for Ptr<Reg64, (), i8> {
+    #[inline]
+    fn write(buffer: &mut Buffer, p: Self, reg: u8) -> Result<(), Error<NoError>> {
+        write_reg_base_disp8(buffer, reg, p.base, p.disp)
+    }
+}
 
-    p: Ptr<Reg64, (), i8>, reg: u8 =>
-        closure(|buffer| write_reg_base_disp8(buffer, reg, p.base, p.disp));
+impl Args for Ptr<Reg64, (), i32> {
+    #[inline]
+    fn write(buffer: &mut Buffer, p: Self, reg: u8) -> Result<(), Error<NoError>> {
+        write_reg_base_disp32(buffer, reg, p.base, p.disp)
+    }
+}
 
-    p: Ptr<Reg64, (), i32>, reg: u8 =>
-        closure(|buffer| write_reg_base_disp32(buffer, reg, p.base, p.disp));
+impl Args for Ptr<(), Scaled<Reg64>, ()> {
+    #[inline]
+    fn write(buffer: &mut Buffer, p: Self, reg: u8) -> Result<(), Error<NoError>> {
+        write_reg_index(buffer, reg, p.index.0, p.index.1)
+    }
+}
 
-    p: Ptr<(), Scaled<Reg64>, ()>, reg: u8 =>
-        closure(|buffer| write_reg_index(buffer, reg, p.index.0, p.index.1));
+impl Args for Ptr<(), Scaled<Reg64>, i8> {
+    #[inline]
+    fn write(buffer: &mut Buffer, p: Self, reg: u8) -> Result<(), Error<NoError>> {
+        write_reg_index_disp(buffer, reg, p.index.0, p.index.1, p.disp as i32)
+    }
+}
 
-    p: Ptr<(), Scaled<Reg64>, i8>, reg: u8 =>
-        closure(|buffer| write_reg_index_disp(buffer, reg, p.index.0, p.index.1, p.disp as i32));
+impl Args for Ptr<(), Scaled<Reg64>, i32> {
+    #[inline]
+    fn write(buffer: &mut Buffer, p: Self, reg: u8) -> Result<(), Error<NoError>> {
+        write_reg_index_disp(buffer, reg, p.index.0, p.index.1, p.disp)
+    }
+}
 
-    p: Ptr<(), Scaled<Reg64>, i32>, reg: u8 =>
-        closure(|buffer| write_reg_index_disp(buffer, reg, p.index.0, p.index.1, p.disp));
+impl Args for Ptr<Reg64, Scaled<Reg64>, ()> {
+    #[inline]
+    fn write(buffer: &mut Buffer, p: Self, reg: u8) -> Result<(), Error<NoError>> {
+        write_reg_base_index(buffer, reg, p.base, p.index.0, p.index.1)
+    }
+}
 
-    p: Ptr<Reg64, Scaled<Reg64>, ()>, reg: u8 =>
-        closure(|buffer| write_reg_base_index(buffer, reg, p.base, p.index.0, p.index.1));
+impl Args for Ptr<Reg64, Scaled<Reg64>, i8> {
+    #[inline]
+    fn write(buffer: &mut Buffer, p: Self, reg: u8) -> Result<(), Error<NoError>> {
+        write_reg_base_index_disp8(buffer, reg, p.base, p.index.0, p.index.1, p.disp)
+    }
+}
 
-    p: Ptr<Reg64, Scaled<Reg64>, i8>, reg: u8 =>
-        closure(|buffer| {
-            write_reg_base_index_disp8(buffer, reg, p.base, p.index.0, p.index.1, p.disp)
-        });
-
-    p: Ptr<Reg64, Scaled<Reg64>, i32>, reg: u8 =>
-        closure(|buffer| {
-            write_reg_base_index_disp32(buffer, reg, p.base, p.index.0, p.index.1, p.disp)
-        });
+impl Args for Ptr<Reg64, Scaled<Reg64>, i32> {
+    #[inline]
+    fn write(buffer: &mut Buffer, p: Self, reg: u8) -> Result<(), Error<NoError>> {
+        write_reg_base_index_disp32(buffer, reg, p.base, p.index.0, p.index.1, p.disp)
+    }
 }

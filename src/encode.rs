@@ -278,7 +278,7 @@ impl Encode<M, Reg64> for (RexW, Op, ModRmIndex) {
 impl<B, X, D> Encode<M, BytePtr<B, X, D>> for (Op, Op, ModRmIndex)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<()>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, ptr: BytePtr<B, X, D>, this: Self)
         -> Result<(), Error<E::Error>>
@@ -301,7 +301,7 @@ impl<B, X, D> Encode<M, BytePtr<B, X, D>> for (Op, Op, ModRmIndex)
 impl<B, X, D> Encode<M, BytePtr<B, X, D>> for (Op, ModRmIndex)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<()>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, ptr: BytePtr<B, X, D>, this: Self)
         -> Result<(), Error<E::Error>>
@@ -323,7 +323,7 @@ impl<B, X, D> Encode<M, BytePtr<B, X, D>> for (Op, ModRmIndex)
 impl<B, X, D> Encode<M, WordPtr<B, X, D>> for (Prefix, Op, ModRmIndex)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<()>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, ptr: WordPtr<B, X, D>, this: Self)
         -> Result<(), Error<E::Error>>
@@ -346,7 +346,7 @@ impl<B, X, D> Encode<M, WordPtr<B, X, D>> for (Prefix, Op, ModRmIndex)
 impl<B, X, D> Encode<M, DWordPtr<B, X, D>> for (Op, ModRmIndex)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<()>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, ptr: DWordPtr<B, X, D>, this: Self)
         -> Result<(), Error<E::Error>>
@@ -368,7 +368,7 @@ impl<B, X, D> Encode<M, DWordPtr<B, X, D>> for (Op, ModRmIndex)
 impl<B, X, D> Encode<M, QWordPtr<B, X, D>> for (Op, ModRmIndex)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<()>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, ptr: QWordPtr<B, X, D>, this: Self)
         -> Result<(), Error<E::Error>>
@@ -390,7 +390,7 @@ impl<B, X, D> Encode<M, QWordPtr<B, X, D>> for (Op, ModRmIndex)
 impl<B, X, D> Encode<M, QWordPtr<B, X, D>> for (RexW, Op, ModRmIndex)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<()>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, ptr: QWordPtr<B, X, D>, this: Self)
         -> Result<(), Error<E::Error>>
@@ -490,7 +490,7 @@ impl Encode<MR, (Reg8, Reg8)> for (Op, ModRm) {
 impl<B, X, D> Encode<RM, (Reg8, BytePtr<B, X, D>)> for (Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg8>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg8, BytePtr<B, X, D>), this: Self)
         -> Result<(), Error<E::Error>>
@@ -685,7 +685,7 @@ impl Encode<RM, (Reg16, Reg16)> for (Prefix, Op, Op, ModRm) {
 impl<B, X, D> Encode<RM, (Reg16, BytePtr<B, X, D>)> for (Prefix, Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg16>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg16, BytePtr<B, X, D>), this: Self)
         -> Result<(), Error<E::Error>>
@@ -709,7 +709,7 @@ impl<B, X, D> Encode<RM, (Reg16, BytePtr<B, X, D>)> for (Prefix, Op, Op, ModRm)
 impl<B, X, D> Encode<RM, (Reg16, WordPtr<B, X, D>)> for (Prefix, Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg16>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg16, WordPtr<B, X, D>), this: Self)
         -> Result<(), Error<E::Error>>
@@ -732,7 +732,7 @@ impl<B, X, D> Encode<RM, (Reg16, WordPtr<B, X, D>)> for (Prefix, Op, ModRm)
 impl<B, X, D> Encode<RM, (Reg16, WordPtr<B, X, D>)> for (Prefix, Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg16>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg16, WordPtr<B, X, D>), this: Self)
         -> Result<(), Error<E::Error>>
@@ -936,7 +936,7 @@ impl Encode<RM, (Reg32, Reg32)> for (Op, Op, ModRm) {
 impl<B, X, D> Encode<RM, (Reg32, BytePtr<B, X, D>)> for (Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg32>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg32, BytePtr<B, X, D>), this: Self)
         -> Result<(), Error<E::Error>>
@@ -959,7 +959,7 @@ impl<B, X, D> Encode<RM, (Reg32, BytePtr<B, X, D>)> for (Op, Op, ModRm)
 impl<B, X, D> Encode<RM, (Reg32, WordPtr<B, X, D>)> for (Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg32>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg32, WordPtr<B, X, D>), this: Self)
         -> Result<(), Error<E::Error>>
@@ -982,7 +982,7 @@ impl<B, X, D> Encode<RM, (Reg32, WordPtr<B, X, D>)> for (Op, Op, ModRm)
 impl<B, X, D> Encode<RM, (Reg32, DWordPtr<B, X, D>)> for (Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg32>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg32, DWordPtr<B, X, D>), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1004,7 +1004,7 @@ impl<B, X, D> Encode<RM, (Reg32, DWordPtr<B, X, D>)> for (Op, ModRm)
 impl<B, X, D> Encode<RM, (Reg32, DWordPtr<B, X, D>)> for (Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg32>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg32, DWordPtr<B, X, D>), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1214,7 +1214,7 @@ impl Encode<RM, (Reg64, Reg64)> for (RexW, Op, Op, ModRm) {
 impl<B, X, D> Encode<RM, (Reg64, BytePtr<B, X, D>)> for (RexW, Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg64>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg64, BytePtr<B, X, D>), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1235,7 +1235,7 @@ impl<B, X, D> Encode<RM, (Reg64, BytePtr<B, X, D>)> for (RexW, Op, Op, ModRm)
 impl<B, X, D> Encode<RM, (Reg64, WordPtr<B, X, D>)> for (RexW, Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg64>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg64, WordPtr<B, X, D>), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1256,7 +1256,7 @@ impl<B, X, D> Encode<RM, (Reg64, WordPtr<B, X, D>)> for (RexW, Op, Op, ModRm)
 impl<B, X, D> Encode<RM, (Reg64, QWordPtr<B, X, D>)> for (RexW, Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg64>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg64, QWordPtr<B, X, D>), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1276,7 +1276,7 @@ impl<B, X, D> Encode<RM, (Reg64, QWordPtr<B, X, D>)> for (RexW, Op, ModRm)
 impl<B, X, D> Encode<RM, (Reg64, QWordPtr<B, X, D>)> for (RexW, Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg64>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg64, QWordPtr<B, X, D>), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1297,7 +1297,7 @@ impl<B, X, D> Encode<RM, (Reg64, QWordPtr<B, X, D>)> for (RexW, Op, Op, ModRm)
 impl<B, X, D> Encode<MI, (BytePtr<B, X, D>, u8)> for (Op, ModRmIndex, Imm8)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<()>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, imm): (BytePtr<B, X, D>, u8), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1320,7 +1320,7 @@ impl<B, X, D> Encode<MI, (BytePtr<B, X, D>, u8)> for (Op, ModRmIndex, Imm8)
 impl<B, X, D> Encode<MR, (BytePtr<B, X, D>, Reg8)> for (Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg8>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, reg): (BytePtr<B, X, D>, Reg8), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1342,7 +1342,7 @@ impl<B, X, D> Encode<MR, (BytePtr<B, X, D>, Reg8)> for (Op, ModRm)
 impl<B, X, D> Encode<MI, (WordPtr<B, X, D>, u16)> for (Prefix, Op, ModRmIndex, Imm16)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<()>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, imm): (WordPtr<B, X, D>, u16), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1366,7 +1366,7 @@ impl<B, X, D> Encode<MI, (WordPtr<B, X, D>, u16)> for (Prefix, Op, ModRmIndex, I
 impl<B, X, D> Encode<MR, (WordPtr<B, X, D>, Reg16)> for (Prefix, Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg16>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, reg): (WordPtr<B, X, D>, Reg16), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1389,7 +1389,7 @@ impl<B, X, D> Encode<MR, (WordPtr<B, X, D>, Reg16)> for (Prefix, Op, ModRm)
 impl<B, X, D> Encode<MI, (DWordPtr<B, X, D>, u32)> for (Op, ModRmIndex, Imm32)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<()>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, imm): (DWordPtr<B, X, D>, u32), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1412,7 +1412,7 @@ impl<B, X, D> Encode<MI, (DWordPtr<B, X, D>, u32)> for (Op, ModRmIndex, Imm32)
 impl<B, X, D> Encode<MR, (DWordPtr<B, X, D>, Reg32)> for (Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg32>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, reg): (DWordPtr<B, X, D>, Reg32), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1434,7 +1434,7 @@ impl<B, X, D> Encode<MR, (DWordPtr<B, X, D>, Reg32)> for (Op, ModRm)
 impl<B, X, D> Encode<MI, (QWordPtr<B, X, D>, u32)> for (RexW, Op, ModRmIndex, Imm32)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<()>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, imm): (QWordPtr<B, X, D>, u32), this: Self)
         -> Result<(), Error<E::Error>>
@@ -1455,7 +1455,7 @@ impl<B, X, D> Encode<MI, (QWordPtr<B, X, D>, u32)> for (RexW, Op, ModRmIndex, Im
 impl<B, X, D> Encode<MR, (QWordPtr<B, X, D>, Reg64)> for (RexW, Op, ModRm)
     where Ptr<B, X, D>: Clone,
           Ptr<B, X, D>: Rex<Reg64>,
-          Ptr<B, X, D>: Args<u8>
+          Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, reg): (QWordPtr<B, X, D>, Reg64), this: Self)
         -> Result<(), Error<E::Error>>
