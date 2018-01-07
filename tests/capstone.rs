@@ -5,7 +5,9 @@ use mitte_amd64::{Emit, Error};
 use mitte_amd64::reg::*;
 use mitte_amd64::operand::{Operand, byte_pointer, word_pointer, dword_pointer, qword_pointer};
 
-use capstone::{Capstone, CsArch, CsMode};
+use capstone::Capstone;
+use capstone::arch::BuildsCapstone;
+use capstone::arch::x86::ArchMode;
 
 type Result<T> = std::result::Result<T, Error<std::io::Error>>;
 
@@ -160,17 +162,23 @@ fn print_code(code: &[u8]) {
 
 
 fn test_disasm<S>(mnemonic: &str, expected: &[Option<S>], code: &[u8]) where S: AsRef<str> {
-    let capstone = Capstone::new(CsArch::ARCH_X86, CsMode::MODE_64).unwrap();
-    let disasm = capstone.disasm(code, 0x0, 0).unwrap();
-
-    assert_eq!(disasm.len() as usize, expected.len());
+    let capstone = Capstone::new().x86().mode(ArchMode::Mode64).build().unwrap();
+    let disasm = match capstone.disasm_all(code, 0x0) {
+        Ok(disasm) => disasm,
+        Err(error) => {
+            print_code(code);
+            panic!("failed to disassemble: {:?}", error);
+        }
+    };
 
     for (i, e) in disasm.iter().zip(expected) {
+        println!("bytes: {:?}", i.bytes());
         assert_eq!(mnemonic, i.mnemonic().unwrap());
         assert_eq!(e.as_ref().map(S::as_ref), i.op_str(),
             "{} {:?} != {0} {:?}", mnemonic,
             e.as_ref().map(S::as_ref).unwrap(), i.op_str().unwrap());
     }
+    assert_eq!(disasm.len() as usize, expected.len());
 }
 
 
