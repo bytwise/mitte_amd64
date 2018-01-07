@@ -9,6 +9,7 @@ mod ptr;
 mod common;
 #[macro_use]
 mod macros;
+mod encode;
 
 pub mod reg;
 pub mod operand;

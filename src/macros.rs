@@ -5,21 +5,18 @@ macro_rules! op {
     (
         $Trait:ident
         {
-            <$($A:ident : $bound:ident),*>
-            $($arg:ident : $T:ty),* ; $($c:ident : $C:ty),* => $($e:expr),*;
+            $($arg:ident : $T:ty),+
+                ; assert_eq!($assert_e1:expr, $assert_e2:expr)
+                => ($enc:ty) $($e:expr),*;
             $($rest:tt)*
         }
     ) => {
-        impl<W, $($A : $bound),*> $Trait<$($T),*> for W where W: ::EmitBytes {
-            fn write(&mut self, $($c: $C),* $(, $arg: $T)*)
+        impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
+            fn write(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
-                let mut buffer = ::buffer::Buffer::new();
-                $(
-                    try!(::buffer::Write::write(&mut buffer, $e));
-                )*
-                try!(self.write(&buffer));
-                Ok(())
+                assert_eq!($assert_e1, $assert_e2);
+                ::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
             }
         }
         op! { $Trait { $($rest)* } }
@@ -28,7 +25,11 @@ macro_rules! op {
     (
         $Trait:ident
         {
-            $($arg:ident : $T:ty),* => $($e:expr),*;
+            $($arg:ident : $T:ty),* => if ($cond:expr) {
+                ($enc1:ty) $($e1:expr),*
+            } else {
+                ($enc2:ty) $($e2:expr),*
+            };
             $($rest:tt)*
         }
     ) => {
@@ -36,12 +37,57 @@ macro_rules! op {
             fn write(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
-                let mut buffer = ::buffer::Buffer::new();
-                $(
-                    try!(::buffer::Write::write(&mut buffer, $e));
-                )*
-                try!(self.write(&buffer));
-                Ok(())
+                if $cond {
+                    ::encode::Encode::<$enc1, _>::encode(self, ( $($arg),* ), ( $($e1),* ))
+                } else {
+                    ::encode::Encode::<$enc2, _>::encode(self, ( $($arg),* ), ( $($e2),* ))
+                }
+            }
+        }
+        op! { $Trait { $($rest)* } }
+    };
+
+    (
+        $Trait:ident
+        {
+            $($arg:ident : $T:ty),* => if ($cond1:expr) {
+                ($enc1:ty) $($e1:expr),*
+            } else if ($cond2:expr) {
+                ($enc2:ty) $($e2:expr),*
+            } else {
+                ($enc3:ty) $($e3:expr),*
+            };
+            $($rest:tt)*
+        }
+    ) => {
+        impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
+            fn write(&mut self, $($arg: $T),*)
+                -> ::std::result::Result<(), ::error::Error<W::Error>>
+            {
+                if $cond1 {
+                    ::encode::Encode::<$enc1, _>::encode(self, ( $($arg),* ), ( $($e1),* ))
+                } else if $cond2 {
+                    ::encode::Encode::<$enc2, _>::encode(self, ( $($arg),* ), ( $($e2),* ))
+                } else {
+                    ::encode::Encode::<$enc3, _>::encode(self, ( $($arg),* ), ( $($e3),* ))
+                }
+            }
+        }
+        op! { $Trait { $($rest)* } }
+    };
+
+    (
+        $Trait:ident
+        {
+            $($arg:ident : $T:ty),* => ($enc:ty) $($e:expr),*;
+            $($rest:tt)*
+        }
+    ) => {
+        impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
+            fn write(&mut self, $($arg: $T),*)
+                -> ::std::result::Result<(), ::error::Error<W::Error>>
+            {
+                ::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
             }
         }
         op! { $Trait { $($rest)* } }
@@ -50,7 +96,7 @@ macro_rules! op {
     (
         $Trait:ident => $R:ty
         {
-            $($arg:ident : $T:ty),* => $($e:expr),*;
+            $($arg:ident : $T:ty),* => ($enc:ty) $($e:expr),*;
             $($rest:tt)*
         }
     ) => {
@@ -59,12 +105,7 @@ macro_rules! op {
             fn write(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<$R, ::error::Error<W::Error>>
             {
-                let mut buffer = ::buffer::Buffer::new();
-                $(
-                    try!(::buffer::Write::write(&mut buffer, $e));
-                )*
-                try!(self.write(&buffer));
-                Ok(())
+                ::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
             }
         }
         op! { $Trait => $R { $($rest)* } }
@@ -77,156 +118,44 @@ macro_rules! op_ptr {
 
     (
         $Trait:ident {
-            <$($A:ident : $bound:ident),*>
-            $ptr:ident : $Ptr:ident <..> $(, $arg:ident : $T:ident)* ; $($c:ident : $C:ty),* => $($e:expr),*;
+            $ptr:ident : $Ptr:ident <..> $(, $arg:ident : $T:ident)* => ($enc:ty) $($e:expr),*;
             $($rest:tt)*
         }
     ) => {
         op! { $Trait {
-            <$($A: $bound),*>
-            $ptr: $Ptr<(), (), i8> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $ptr: $Ptr<(), (), i32> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $ptr: $Ptr<Reg64, (), ()> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $ptr: $Ptr<Reg64, (), i8> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $ptr: $Ptr<Reg64, (), i32> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $ptr: $Ptr<(), Scaled<Reg64>, ()> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $ptr: $Ptr<(), Scaled<Reg64>, i8> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $ptr: $Ptr<(), Scaled<Reg64>, i32> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, ()> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, i8> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, i32> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
+            $ptr: $Ptr<(), (), i8> $(, $arg: $T)* => ($enc) $($e),*;
+            $ptr: $Ptr<(), (), i32> $(, $arg: $T)* => ($enc) $($e),*;
+            $ptr: $Ptr<Reg64, (), ()> $(, $arg: $T)* => ($enc) $($e),*;
+            $ptr: $Ptr<Reg64, (), i8> $(, $arg: $T)* => ($enc) $($e),*;
+            $ptr: $Ptr<Reg64, (), i32> $(, $arg: $T)* => ($enc) $($e),*;
+            $ptr: $Ptr<(), Scaled<Reg64>, ()> $(, $arg: $T)* => ($enc) $($e),*;
+            $ptr: $Ptr<(), Scaled<Reg64>, i8> $(, $arg: $T)* => ($enc) $($e),*;
+            $ptr: $Ptr<(), Scaled<Reg64>, i32> $(, $arg: $T)* => ($enc) $($e),*;
+            $ptr: $Ptr<Reg64, Scaled<Reg64>, ()> $(, $arg: $T)* => ($enc) $($e),*;
+            $ptr: $Ptr<Reg64, Scaled<Reg64>, i8> $(, $arg: $T)* => ($enc) $($e),*;
+            $ptr: $Ptr<Reg64, Scaled<Reg64>, i32> $(, $arg: $T)* => ($enc) $($e),*;
         }}
         op_ptr! { $Trait { $($rest)* } }
     };
 
     (
         $Trait:ident {
-            <$($A:ident : $bound:ident),*>
-            $arg:ident : $T:ident, $ptr:ident : $Ptr:ident <..> ; $($c:ident : $C:ty),* => $($e:expr),*;
+            $arg:ident : $T:ident, $ptr:ident : $Ptr:ident <..> => ($enc:ty) $($e:expr),*;
             $($rest:tt)*
         }
     ) => {
         op! { $Trait {
-            <$($A: $bound),*>
-            $arg: $T, $ptr: $Ptr<(), (), i8> ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $arg: $T, $ptr: $Ptr<(), (), i32> ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $arg: $T, $ptr: $Ptr<Reg64, (), ()> ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $arg: $T, $ptr: $Ptr<Reg64, (), i8> ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $arg: $T, $ptr: $Ptr<Reg64, (), i32> ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, ()> ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, i8> ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, i32> ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, ()> ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, i8> ; $($c: $C),* => $($e),*;
-            <$($A: $bound),*>
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, i32> ; $($c: $C),* => $($e),*;
-        }}
-        op_ptr! { $Trait { $($rest)* } }
-    };
-
-    (
-        $Trait:ident {
-            $ptr:ident : $Ptr:ident <..> $(, $arg:ident : $T:ident)* => $($e:expr),*;
-            $($rest:tt)*
-        }
-    ) => {
-        op! { $Trait {
-            $ptr: $Ptr<(), (), i8> $(, $arg: $T)* => $($e),*;
-            $ptr: $Ptr<(), (), i32> $(, $arg: $T)* => $($e),*;
-            $ptr: $Ptr<Reg64, (), ()> $(, $arg: $T)* => $($e),*;
-            $ptr: $Ptr<Reg64, (), i8> $(, $arg: $T)* => $($e),*;
-            $ptr: $Ptr<Reg64, (), i32> $(, $arg: $T)* => $($e),*;
-            $ptr: $Ptr<(), Scaled<Reg64>, ()> $(, $arg: $T)* => $($e),*;
-            $ptr: $Ptr<(), Scaled<Reg64>, i8> $(, $arg: $T)* => $($e),*;
-            $ptr: $Ptr<(), Scaled<Reg64>, i32> $(, $arg: $T)* => $($e),*;
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, ()> $(, $arg: $T)* => $($e),*;
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, i8> $(, $arg: $T)* => $($e),*;
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, i32> $(, $arg: $T)* => $($e),*;
-        }}
-        op_ptr! { $Trait { $($rest)* } }
-    };
-
-    (
-        $Trait:ident {
-            $ptr:ident : $Ptr:ident <..> $(, $arg:ident : $T:ident)* ; $($c:ident : $C:ty),* => $($e:expr),*;
-            $($rest:tt)*
-        }
-    ) => {
-        op! { $Trait {
-            $ptr: $Ptr<(), (), i8> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            $ptr: $Ptr<(), (), i32> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            $ptr: $Ptr<Reg64, (), ()> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            $ptr: $Ptr<Reg64, (), i8> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            $ptr: $Ptr<Reg64, (), i32> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            $ptr: $Ptr<(), Scaled<Reg64>, ()> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            $ptr: $Ptr<(), Scaled<Reg64>, i8> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            $ptr: $Ptr<(), Scaled<Reg64>, i32> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, ()> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, i8> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, i32> $(, $arg: $T)* ; $($c: $C),* => $($e),*;
-        }}
-        op_ptr! { $Trait { $($rest)* } }
-    };
-
-    (
-        $Trait:ident {
-            $arg:ident : $T:ident, $ptr:ident : $Ptr:ident <..> => $($e:expr),*;
-            $($rest:tt)*
-        }
-    ) => {
-        op! { $Trait {
-            $arg: $T, $ptr: $Ptr<(), (), i8> => $($e),*;
-            $arg: $T, $ptr: $Ptr<(), (), i32> => $($e),*;
-            $arg: $T, $ptr: $Ptr<Reg64, (), ()> => $($e),*;
-            $arg: $T, $ptr: $Ptr<Reg64, (), i8> => $($e),*;
-            $arg: $T, $ptr: $Ptr<Reg64, (), i32> => $($e),*;
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, ()> => $($e),*;
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, i8> => $($e),*;
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, i32> => $($e),*;
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, ()> => $($e),*;
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, i8> => $($e),*;
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, i32> => $($e),*;
-        }}
-        op_ptr! { $Trait { $($rest)* } }
-    };
-
-    (
-        $Trait:ident {
-            $arg:ident : $T:ident, $ptr:ident : $Ptr:ident <..> ; $($c:ident : $C:ty),* => $($e:expr),*;
-            $($rest:tt)*
-        }
-    ) => {
-        op! { $Trait {
-            $arg: $T, $ptr: $Ptr<(), (), i8> ; $($c: $C),* => $($e),*;
-            $arg: $T, $ptr: $Ptr<(), (), i32> ; $($c: $C),* => $($e),*;
-            $arg: $T, $ptr: $Ptr<Reg64, (), ()> ; $($c: $C),* => $($e),*;
-            $arg: $T, $ptr: $Ptr<Reg64, (), i8> ; $($c: $C),* => $($e),*;
-            $arg: $T, $ptr: $Ptr<Reg64, (), i32> ; $($c: $C),* => $($e),*;
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, ()> ; $($c: $C),* => $($e),*;
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, i8> ; $($c: $C),* => $($e),*;
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, i32> ; $($c: $C),* => $($e),*;
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, ()> ; $($c: $C),* => $($e),*;
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, i8> ; $($c: $C),* => $($e),*;
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, i32> ; $($c: $C),* => $($e),*;
+            $arg: $T, $ptr: $Ptr<(), (), i8> => ($enc) $($e),*;
+            $arg: $T, $ptr: $Ptr<(), (), i32> => ($enc) $($e),*;
+            $arg: $T, $ptr: $Ptr<Reg64, (), ()> => ($enc) $($e),*;
+            $arg: $T, $ptr: $Ptr<Reg64, (), i8> => ($enc) $($e),*;
+            $arg: $T, $ptr: $Ptr<Reg64, (), i32> => ($enc) $($e),*;
+            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, ()> => ($enc) $($e),*;
+            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, i8> => ($enc) $($e),*;
+            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, i32> => ($enc) $($e),*;
+            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, ()> => ($enc) $($e),*;
+            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, i8> => ($enc) $($e),*;
+            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, i32> => ($enc) $($e),*;
         }}
         op_ptr! { $Trait { $($rest)* } }
     };
@@ -338,162 +267,5 @@ macro_rules! dispatch_ptr {
             }
         }
         dispatch_ptr! { $Trait { $($rest)* } }
-    };
-}
-
-
-macro_rules! forward {
-    ($Trait:ident {}) => {};
-
-    (
-        $Trait:ident {
-            <$($A:ident : $bound:ident ),*>
-            $($arg:ident : $T:ty),* => ( $f:path ) ( $($e:expr),* );
-            $($rest:tt)*
-        }
-    ) => {
-        impl<W, $($A : $bound),*> $Trait<$($T),*> for W where W: ::EmitBytes {
-            fn write(&mut self, $($arg: $T),*)
-                -> ::std::result::Result<(), ::error::Error<W::Error>>
-            {
-                $f(self, $($e),*)
-            }
-        }
-        forward! { $Trait { $($rest)* } }
-    };
-
-    ($Trait:ident {
-        $($arg:ident : $T:ty),* => ( $f:path ) ( $($e:expr),* );
-        $($rest:tt)*
-    }) => {
-        impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
-            fn write(&mut self, $($arg: $T),*)
-                -> ::std::result::Result<(), ::error::Error<W::Error>>
-            {
-                $f(self, $($e),*)
-            }
-        }
-        forward! { $Trait { $($rest)* } }
-    };
-
-    (
-        $Trait:ident {
-            $($arg:ident : $T:ty),* ; $($c:ident : $C:ty),* => ( $f:path ) ( $($e:expr),* );
-            $($rest:tt)*
-        }
-    ) => {
-        impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
-            fn write(&mut self, $($c: $C,)* $($arg: $T),*)
-                -> ::std::result::Result<(), ::error::Error<W::Error>>
-            {
-                $f(self, $($e),*)
-            }
-        }
-        forward! { $Trait { $($rest)* } }
-    };
-}
-
-
-macro_rules! forward_ptr {
-    ($Trait:ident {}) => {};
-
-    ($Trait:ident {
-        $ptr:ident : $Ptr:ident <..> => ( $f:path ) ( $($e:expr),* );
-        $($rest:tt)*
-    }) => {
-        forward! { $Trait {
-            $ptr: $Ptr<(), (), i8> => ($f)($($e),*);
-            $ptr: $Ptr<(), (), i32> => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, (), ()> => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, (), i8> => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, (), i32> => ($f)($($e),*);
-            $ptr: $Ptr<(), Scaled<Reg64>, ()> => ($f)($($e),*);
-            $ptr: $Ptr<(), Scaled<Reg64>, i8> => ($f)($($e),*);
-            $ptr: $Ptr<(), Scaled<Reg64>, i32> => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, ()> => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, i8> => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, i32> => ($f)($($e),*);
-        }}
-        forward_ptr! { $Trait { $($rest)* } }
-    };
-
-    ($Trait:ident {
-        $ptr:ident : $Ptr:ident <..>, $($arg:ident : $T:ty),* => ( $f:path ) ( $($e:expr),* );
-        $($rest:tt)*
-    }) => {
-        forward! { $Trait {
-            $ptr: $Ptr<(), (), i8> $(, $arg : $T)* => ($f)($($e),*);
-            $ptr: $Ptr<(), (), i32> $(, $arg : $T)* => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, (), ()> $(, $arg : $T)* => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, (), i8> $(, $arg : $T)* => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, (), i32> $(, $arg : $T)* => ($f)($($e),*);
-            $ptr: $Ptr<(), Scaled<Reg64>, ()> $(, $arg : $T)* => ($f)($($e),*);
-            $ptr: $Ptr<(), Scaled<Reg64>, i8> $(, $arg : $T)* => ($f)($($e),*);
-            $ptr: $Ptr<(), Scaled<Reg64>, i32> $(, $arg : $T)* => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, ()> $(, $arg : $T)* => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, i8> $(, $arg : $T)* => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, i32> $(, $arg : $T)* => ($f)($($e),*);
-        }}
-        forward_ptr! { $Trait { $($rest)* } }
-    };
-
-    ($Trait:ident {
-        $ptr:ident : $Ptr:ident <..>, $($arg:ident : $T:ty),* ; $($c:ident : $C:ty),* => ( $f:path ) ( $($e:expr),* );
-        $($rest:tt)*
-    }) => {
-        forward! { $Trait {
-            $ptr: $Ptr<(), (), i8> $(, $arg : $T)*; $($c: $C),* => ($f)($($e),*);
-            $ptr: $Ptr<(), (), i32> $(, $arg : $T)*; $($c: $C),* => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, (), ()> $(, $arg : $T)*; $($c: $C),* => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, (), i8> $(, $arg : $T)*; $($c: $C),* => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, (), i32> $(, $arg : $T)*; $($c: $C),* => ($f)($($e),*);
-            $ptr: $Ptr<(), Scaled<Reg64>, ()> $(, $arg : $T)*; $($c: $C),* => ($f)($($e),*);
-            $ptr: $Ptr<(), Scaled<Reg64>, i8> $(, $arg : $T)*; $($c: $C),* => ($f)($($e),*);
-            $ptr: $Ptr<(), Scaled<Reg64>, i32> $(, $arg : $T)*; $($c: $C),* => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, ()> $(, $arg : $T)*; $($c: $C),* => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, i8> $(, $arg : $T)*; $($c: $C),* => ($f)($($e),*);
-            $ptr: $Ptr<Reg64, Scaled<Reg64>, i32> $(, $arg : $T)*; $($c: $C),* => ($f)($($e),*);
-        }}
-        forward_ptr! { $Trait { $($rest)* } }
-    };
-
-    ($Trait:ident {
-        $arg:ident : $T:ty, $ptr:ident : $Ptr:ident <..> => ( $f:path ) ( $($e:expr),* );
-        $($rest:tt)*
-    }) => {
-        forward! { $Trait {
-            $arg: $T, $ptr: $Ptr<(), (), i8> => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<(), (), i32> => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<Reg64, (), ()> => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<Reg64, (), i8> => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<Reg64, (), i32> => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, ()> => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, i8> => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, i32> => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, ()> => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, i8> => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, i32> => ($f)($($e),*);
-        }}
-        forward_ptr! { $Trait { $($rest)* } }
-    };
-
-    ($Trait:ident {
-        $arg:ident : $T:ty, $ptr:ident : $Ptr:ident <..> ; $($c:ident : $C:ty),* => ( $f:path ) ( $($e:expr),* );
-        $($rest:tt)*
-    }) => {
-        forward! { $Trait {
-            $arg: $T, $ptr: $Ptr<(), (), i8>; $($c: $C),* => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<(), (), i32>; $($c: $C),* => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<Reg64, (), ()>; $($c: $C),* => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<Reg64, (), i8>; $($c: $C),* => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<Reg64, (), i32>; $($c: $C),* => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, ()>; $($c: $C),* => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, i8>; $($c: $C),* => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<(), Scaled<Reg64>, i32>; $($c: $C),* => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, ()>; $($c: $C),* => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, i8>; $($c: $C),* => ($f)($($e),*);
-            $arg: $T, $ptr: $Ptr<Reg64, Scaled<Reg64>, i32>; $($c: $C),* => ($f)($($e),*);
-        }}
-        forward_ptr! { $Trait { $($rest)* } }
     };
 }

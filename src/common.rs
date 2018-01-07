@@ -159,19 +159,6 @@ pub fn rex_rxb<R, X, B>(r: R, x: X, b: B) -> Result<Option<u8>, Error<NoError>>
 }
 
 
-pub fn write_rex_b<B>(buffer: &mut Buffer, b: B) -> Result<(), Error<NoError>>
-    where B: Register
-{
-    buffer::Write::write(buffer, try!(rex_b(b)))
-}
-
-pub fn write_rex_rb<R, B>(buffer: &mut Buffer, r: R, b: B) -> Result<(), Error<NoError>>
-    where R: Register, B: Register
-{
-    buffer::Write::write(buffer, try!(rex_rb(r, b)))
-}
-
-
 #[inline]
 pub fn modrm(mode: u8, reg: u8, rm: u8) -> u8 {
     debug_assert!(mode < 4);
@@ -295,6 +282,12 @@ pub fn write_reg_base_index_disp32(buffer: &mut Buffer, reg: u8, base: Reg64, in
 
 pub trait Rex<T> {
     fn rex(ptr: Self, arg: T) -> Result<Option<u8>, Error<NoError>>;
+
+    fn rexw(ptr: Self, arg: T) -> Result<u8, Error<NoError>>
+        where Self: Sized
+    {
+        Rex::rex(ptr, arg).map(|rex| 0x48 | rex.unwrap_or(0))
+    }
 }
 
 macro_rules! rex {

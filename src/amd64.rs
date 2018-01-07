@@ -1,5 +1,4 @@
 use EmitBytes;
-use common::*;
 use reg::{Reg8, Reg16, Reg32, Reg64};
 use ptr::Scaled;
 use ptr::{Ptr, BytePtr, WordPtr, DWordPtr, QWordPtr};
@@ -7,67 +6,8 @@ use ptr::{BytePointer, WordPointer, DWordPointer, QWordPointer};
 use operand::Operand;
 use error::Error;
 use fixup::{HoleKind, Hole};
-
-// used in several instructions to force REX.W
-use reg::Rax;
-
-
-fn size<R>(r: R) -> Option<u8>
-    where R: Register
-{
-    if r.size() == 2 {
-        Some(0x66u8)
-    } else {
-        None
-    }
-}
-
-
-trait Op1<T>: EmitBytes {
-    fn write(&mut self, opcode: &[u8], op_index: u8, arg: T) -> Result<(), Error<Self::Error>>;
-}
-
-op! { Op1 {
-    <R: Register>
-    reg: R; op: &[u8], op_index: u8 =>
-        size(reg), try!(rex_b(reg)), op, modrm(3, op_index, reg.rm());
-}}
-
-
-trait Op2<D, S>: EmitBytes {
-    fn write(&mut self, opcode: &[u8], reg: D, rm: S) -> Result<(), Error<Self::Error>>;
-}
-
-op! { Op2 {
-    <R1: Register, R2: Register>
-    dst: R1, src: R2; opcode: &[u8] =>
-        size(dst), try!(rex_rb(dst, src)), opcode, modrm(3, dst.rm(), src.rm());
-}}
-
-
-macro_rules! forward1 {
-    ($Trait:ident { $($T:ty $(, $a:ident : $A:ty)* => $opcode:expr, $op_index:expr;)* }) => {
-        $(
-            impl<W> $Trait<$T> for W where W: EmitBytes {
-                fn write(&mut self, $($a: $A ,)* arg: $T) -> Result<(), Error<Self::Error>> {
-                    Op1::write(self, $opcode, $op_index, arg)
-                }
-            }
-        )*
-    };
-}
-
-macro_rules! forward2 {
-    ($Trait:ident { $($D:ty, $S:ty $(, $a:ident : $A:ty)* => $opcode:expr;)* }) => {
-        $(
-            impl<W> $Trait<$D, $S> for W where W: EmitBytes {
-                fn write(&mut self, $($a: $A ,)* dst: $D, src: $S) -> Result<(), Error<Self::Error>> {
-                    Op2::write(self, $opcode, dst, src)
-                }
-            }
-        )*
-    };
-}
+use encode::{None, D, I, M, O, MI, MR, RM, OI, XchgSrc, XchgDst};
+use encode::{Prefix, RexW, Op, OpPlusReg, ModRm, ModRmIndex, Imm8, Imm16, Imm32, Imm64};
 
 
 struct ArithOpcodes {
@@ -280,70 +220,39 @@ macro_rules! binary_arith_op {
             }
         }
 
-        forward2! { $Op {
-            Reg8, Reg8 => &[$op.mem8];
-            Reg16, Reg16 => &[$op.mem32];
-            Reg32, Reg32 => &[$op.mem32];
-            Reg64, Reg64 => &[$op.mem32];
-        }}
-
         op! { $Op {
-            dst: Reg16, src: u8 =>
-                0x66u8, try!(rex_b(dst)), $op.sext_imm8, modrm(3, $op.index, dst.rm()), src;
-            dst: Reg32, src: u8 =>
-                try!(rex_b(dst)), $op.sext_imm8, modrm(3, $op.index, dst.rm()), src;
-            dst: Reg64, src: u8 =>
-                try!(rex_b(dst)), $op.sext_imm8, modrm(3, $op.index, dst.rm()), src;
+            dst: Reg8, src: u8 => if (dst == Reg8::Al) {
+                (I) Op($op.al), Imm8
+            } else {
+                (MI) Op($op.imm8), ModRmIndex($op.index), Imm8
+            };
+            dst: Reg16, src: u16 => if (dst == Reg16::Ax) {
+                (I) Prefix(0x66), Op($op.eax), Imm16
+            } else {
+                (MI) Prefix(0x66), Op($op.imm32), ModRmIndex($op.index), Imm16
+            };
+            dst: Reg32, src: u32 => if (dst == Reg32::Eax) {
+                (I) Op($op.eax), Imm32
+            } else {
+                (MI) Op($op.imm32), ModRmIndex($op.index), Imm32
+            };
+            dst: Reg64, src: u32 => if (dst == Reg64::Rax) {
+                (I) RexW, Op($op.eax), Imm32
+            } else {
+                (MI) RexW, Op($op.imm32), ModRmIndex($op.index), Imm32
+            };
 
-            dst: Reg8, src: u8 =>
-                closure(|buffer| {
-                    if dst == Reg8::Al {
-                        buffer.write_u8($op.al);
-                    } else {
-                        try!(write_rex_b(buffer, dst));
-                        buffer.write_u8($op.imm8);
-                        buffer.write_u8(modrm(3, $op.index, dst.rm()));
-                    }
-                    Ok(())
-                }),
-                src;
-            dst: Reg16, src: u16 =>
-                0x66u8,
-                closure(|buffer| {
-                    if dst == Reg16::Ax {
-                        buffer.write_u8($op.eax);
-                    } else {
-                        try!(write_rex_b(buffer, dst));
-                        buffer.write_u8($op.imm32);
-                        buffer.write_u8(modrm(3, $op.index, dst.rm()));
-                    }
-                    Ok(())
-                }),
-                src;
-            dst: Reg32, src: u32 =>
-                closure(|buffer| {
-                    if dst == Reg32::Eax {
-                        buffer.write_u8($op.eax);
-                    } else {
-                        try!(write_rex_b(buffer, dst));
-                        buffer.write_u8($op.imm32);
-                        buffer.write_u8(modrm(3, $op.index, dst.rm()));
-                    }
-                    Ok(())
-                }),
-                src;
-            dst: Reg64, src: u32 =>
-                try!(rex_b(dst)),
-                closure(|buffer| {
-                    if dst == Rax {
-                        buffer.write_u8($op.eax);
-                    } else {
-                        buffer.write_u8($op.imm32);
-                        buffer.write_u8(modrm(3, $op.index, dst.rm()));
-                    }
-                    Ok(())
-                }),
-                src;
+            dst: Reg16, src: u8 =>
+                (MI) Prefix(0x66), Op($op.sext_imm8), ModRmIndex($op.index), Imm8;
+            dst: Reg32, src: u8 =>
+                (MI)               Op($op.sext_imm8), ModRmIndex($op.index), Imm8;
+            dst: Reg64, src: u8 =>
+                (MI) RexW,         Op($op.sext_imm8), ModRmIndex($op.index), Imm8;
+
+            dst: Reg8,  src: Reg8  => (MR)               Op($op.reg8),  ModRm;
+            dst: Reg16, src: Reg16 => (MR) Prefix(0x66), Op($op.reg32), ModRm;
+            dst: Reg32, src: Reg32 => (MR)               Op($op.reg32), ModRm;
+            dst: Reg64, src: Reg64 => (MR) RexW,         Op($op.reg32), ModRm;
         }}
 
         dispatch_ptr! { $Op {
@@ -362,63 +271,24 @@ macro_rules! binary_arith_op {
         }}
 
         op_ptr! { $Op {
-            r: Reg8, p: BytePtr<..> =>
-                try!(Rex::rex(p.ptr, r)),
-                $op.mem8,
-                closure(|b| Args::write(b, p.ptr, r.rm()));
-            r: Reg16, p: WordPtr<..> =>
-                0x66u8,
-                try!(Rex::rex(p.ptr, r)),
-                $op.mem32,
-                closure(|b| Args::write(b, p.ptr, r.rm()));
-            r: Reg32, p: DWordPtr<..> =>
-                try!(Rex::rex(p.ptr, r)),
-                $op.mem32,
-                closure(|b| Args::write(b, p.ptr, r.rm()));
-            r: Reg64, p: QWordPtr<..> =>
-                try!(Rex::rex(p.ptr, r)),
-                $op.mem32,
-                closure(|b| Args::write(b, p.ptr, r.rm()));
+            dst: Reg8,  src: BytePtr<..>  => (RM)               Op($op.mem8),  ModRm;
+            dst: Reg16, src: WordPtr<..>  => (RM) Prefix(0x66), Op($op.mem32), ModRm;
+            dst: Reg32, src: DWordPtr<..> => (RM)               Op($op.mem32), ModRm;
+            dst: Reg64, src: QWordPtr<..> => (RM) RexW,         Op($op.mem32), ModRm;
 
-            p: BytePtr<..>, imm: u8 =>
-                try!(Rex::rex(p.ptr, ())),
-                $op.imm8,
-                closure(|b| Args::write(b, p.ptr, $op.index)),
-                imm;
-            p: WordPtr<..>, imm: u16 =>
-                0x66u8,
-                try!(Rex::rex(p.ptr, ())),
-                $op.imm32,
-                closure(|b| Args::write(b, p.ptr, $op.index)),
-                imm;
-            p: DWordPtr<..>, imm: u32 =>
-                try!(Rex::rex(p.ptr, ())),
-                $op.imm32,
-                closure(|b| Args::write(b, p.ptr, $op.index)),
-                imm;
-            p: QWordPtr<..>, imm: u32 =>
-                try!(Rex::rex(p.ptr, Rax)),
-                $op.imm32,
-                closure(|b| Args::write(b, p.ptr, $op.index)),
-                imm;
+            dst: BytePtr<..>, src: u8 =>
+                (MI) Op($op.imm8), ModRmIndex($op.index), Imm8;
+            dst: WordPtr<..>, src: u16 =>
+                (MI) Prefix(0x66), Op($op.imm32), ModRmIndex($op.index), Imm16;
+            dst: DWordPtr<..>, src: u32 =>
+                (MI) Op($op.imm32), ModRmIndex($op.index), Imm32;
+            dst: QWordPtr<..>, src: u32 =>
+                (MI) RexW, Op($op.imm32), ModRmIndex($op.index), Imm32;
 
-            p: BytePtr<..>, r: Reg8 =>
-                try!(Rex::rex(p.ptr, r)),
-                $op.reg8,
-                closure(|b| Args::write(b, p.ptr, r.rm()));
-            p: WordPtr<..>, r: Reg16 =>
-                0x66u8,
-                try!(Rex::rex(p.ptr, r)),
-                $op.reg32,
-                closure(|b| Args::write(b, p.ptr, r.rm()));
-            p: DWordPtr<..>, r: Reg32 =>
-                try!(Rex::rex(p.ptr, r)),
-                $op.reg32,
-                closure(|b| Args::write(b, p.ptr, r.rm()));
-            p: QWordPtr<..>, r: Reg64 =>
-                try!(Rex::rex(p.ptr, r)),
-                $op.reg32,
-                closure(|b| Args::write(b, p.ptr, r.rm()));
+            dst: BytePtr<..>,  src: Reg8  => (MR)               Op($op.reg8),  ModRm;
+            dst: WordPtr<..>,  src: Reg16 => (MR) Prefix(0x66), Op($op.reg32), ModRm;
+            dst: DWordPtr<..>, src: Reg32 => (MR)               Op($op.reg32), ModRm;
+            dst: QWordPtr<..>, src: Reg64 => (MR) RexW,         Op($op.reg32), ModRm;
         }}
         )*
     };
@@ -455,24 +325,22 @@ macro_rules! shift_op {
         }
 
         op! { $Op {
-            r: Reg8, shift: u8 =>  try!(rex_b(r)), 0xc0u8, modrm(3, $op.index, r.rm()), shift;
-            r: Reg16, shift: u8 =>
-                0x66u8, try!(rex_b(r)), 0xc1u8, modrm(3, $op.index, r.rm()), shift;
-            r: Reg32, shift: u8 => try!(rex_b(r)), 0xc1u8, modrm(3, $op.index, r.rm()), shift;
-            r: Reg64, shift: u8 => try!(rex_b(r)), 0xc1u8, modrm(3, $op.index, r.rm()), shift;
+            r: Reg8,  shift: u8 => (MI)                 Op(0xc0), ModRmIndex($op.index), Imm8;
+            r: Reg16, shift: u8 => (MI) Prefix(0x66u8), Op(0xc1), ModRmIndex($op.index), Imm8;
+            r: Reg32, shift: u8 => (MI)                 Op(0xc1), ModRmIndex($op.index), Imm8;
+            r: Reg64, shift: u8 => (MI) RexW,           Op(0xc1), ModRmIndex($op.index), Imm8;
 
-            r: Reg8, shift: Reg8 =>
-                assert_eq!(shift, Reg8::Cl),
-                try!(rex_b(r)), 0xd2u8, modrm(3, $op.index, r.rm());
-            r: Reg16, shift: Reg8 =>
-                assert_eq!(shift, Reg8::Cl),
-                0x66u8, try!(rex_b(r)), 0xd3u8, modrm(3, $op.index, r.rm());
-            r: Reg32, shift: Reg8 =>
-                assert_eq!(shift, Reg8::Cl),
-                try!(rex_b(r)), 0xd3u8, modrm(3, $op.index, r.rm());
-            r: Reg64, shift: Reg8 =>
-                assert_eq!(shift, Reg8::Cl),
-                try!(rex_b(r)), 0xd3u8, modrm(3, $op.index, r.rm());
+            r: Reg8,  shift: Reg8; assert_eq!(shift, Reg8::Cl)
+                => (M) Op(0xd2), ModRmIndex($op.index);
+
+            r: Reg16, shift: Reg8; assert_eq!(shift, Reg8::Cl)
+                => (M) Prefix(0x66), Op(0xd3), ModRmIndex($op.index);
+
+            r: Reg32, shift: Reg8; assert_eq!(shift, Reg8::Cl)
+                => (M) Op(0xd3), ModRmIndex($op.index);
+
+            r: Reg64, shift: Reg8; assert_eq!(shift, Reg8::Cl)
+                => (M) RexW, Op(0xd3), ModRmIndex($op.index);
         }}
         )*
     };
@@ -507,11 +375,11 @@ macro_rules! unary_arith_op {
                 }
             }
 
-            forward1! { $Op {
-                Reg8 => &[0xf6], $index;
-                Reg16 => &[0xf7], $index;
-                Reg32 => &[0xf7], $index;
-                Reg64 => &[0xf7], $index;
+            op! { $Op {
+                r: Reg8  => (M)               Op(0xf6), ModRmIndex($index);
+                r: Reg16 => (M) Prefix(0x66), Op(0xf7), ModRmIndex($index);
+                r: Reg32 => (M)               Op(0xf7), ModRmIndex($index);
+                r: Reg64 => (M) RexW,         Op(0xf7), ModRmIndex($index);
             }}
 
             dispatch_ptr! { $Op {
@@ -522,22 +390,10 @@ macro_rules! unary_arith_op {
             }}
 
             op_ptr! { $Op {
-                p: BytePtr<..> =>
-                    try!(Rex::rex(p.ptr, ())),
-                    0xf6u8,
-                    closure(|b| Args::write(b, p.ptr, $index));
-                p: WordPtr<..> =>
-                    0x66u8, try!(Rex::rex(p.ptr, ())),
-                    0xf7u8,
-                    closure(|b| Args::write(b, p.ptr, $index));
-                p: DWordPtr<..> =>
-                    try!(Rex::rex(p.ptr, ())),
-                    0xf7u8,
-                    closure(|b| Args::write(b, p.ptr, $index));
-                p: QWordPtr<..> =>
-                    try!(Rex::rex(p.ptr, Rax)),
-                    0xf7u8,
-                    closure(|b| Args::write(b, p.ptr, $index));
+                p: BytePtr<..>  => (M)               Op(0xf6), ModRmIndex($index);
+                p: WordPtr<..>  => (M) Prefix(0x66), Op(0xf7), ModRmIndex($index);
+                p: DWordPtr<..> => (M)               Op(0xf7), ModRmIndex($index);
+                p: QWordPtr<..> => (M) RexW,         Op(0xf7), ModRmIndex($index);
             }}
         )*
     };
@@ -569,11 +425,11 @@ impl<W> Inc<Operand> for W where W: EmitBytes {
     }
 }
 
-forward1! { Inc {
-    Reg8 => &[0xfe], 0;
-    Reg16 => &[0xff], 0;
-    Reg32 => &[0xff], 0;
-    Reg64 => &[0xff], 0;
+op! { Inc {
+    r: Reg8  => (M)               Op(0xfe), ModRmIndex(0);
+    r: Reg16 => (M) Prefix(0x66), Op(0xff), ModRmIndex(0);
+    r: Reg32 => (M)               Op(0xff), ModRmIndex(0);
+    r: Reg64 => (M) RexW,         Op(0xff), ModRmIndex(0);
 }}
 
 dispatch_ptr! { Inc {
@@ -584,10 +440,10 @@ dispatch_ptr! { Inc {
 }}
 
 op_ptr! { Inc {
-    p: BytePtr<..> =>         try!(Rex::rex(p.ptr, ())),  0xfeu8, closure(|b| Args::write(b, p.ptr, 0));
-    p: WordPtr<..> => 0x66u8, try!(Rex::rex(p.ptr, ())),  0xffu8, closure(|b| Args::write(b, p.ptr, 0));
-    p: DWordPtr<..> =>        try!(Rex::rex(p.ptr, ())),  0xffu8, closure(|b| Args::write(b, p.ptr, 0));
-    p: QWordPtr<..> =>        try!(Rex::rex(p.ptr, Rax)), 0xffu8, closure(|b| Args::write(b, p.ptr, 0));
+    p: BytePtr<..>  => (M)               Op(0xfe), ModRmIndex(0);
+    p: WordPtr<..>  => (M) Prefix(0x66), Op(0xff), ModRmIndex(0);
+    p: DWordPtr<..> => (M)               Op(0xff), ModRmIndex(0);
+    p: QWordPtr<..> => (M) RexW,         Op(0xff), ModRmIndex(0);
 }}
 
 
@@ -612,11 +468,11 @@ impl<W> Dec<Operand> for W where W: EmitBytes {
     }
 }
 
-forward1! { Dec {
-    Reg8 => &[0xfe], 1;
-    Reg16 => &[0xff], 1;
-    Reg32 => &[0xff], 1;
-    Reg64 => &[0xff], 1;
+op! { Dec {
+    r: Reg8  => (M)               Op(0xfe), ModRmIndex(1);
+    r: Reg16 => (M) Prefix(0x66), Op(0xff), ModRmIndex(1);
+    r: Reg32 => (M)               Op(0xff), ModRmIndex(1);
+    r: Reg64 => (M) RexW,         Op(0xff), ModRmIndex(1);
 }}
 
 dispatch_ptr! { Dec {
@@ -627,10 +483,10 @@ dispatch_ptr! { Dec {
 }}
 
 op_ptr! { Dec {
-    p: BytePtr<..> =>         try!(Rex::rex(p.ptr, ())),  0xfeu8, closure(|b| Args::write(b, p.ptr, 1));
-    p: WordPtr<..> => 0x66u8, try!(Rex::rex(p.ptr, ())),  0xffu8, closure(|b| Args::write(b, p.ptr, 1));
-    p: DWordPtr<..> =>        try!(Rex::rex(p.ptr, ())),  0xffu8, closure(|b| Args::write(b, p.ptr, 1));
-    p: QWordPtr<..> =>        try!(Rex::rex(p.ptr, Rax)), 0xffu8, closure(|b| Args::write(b, p.ptr, 1));
+    p: BytePtr<..>  => (M)               Op(0xfe), ModRmIndex(1);
+    p: WordPtr<..>  => (M) Prefix(0x66), Op(0xff), ModRmIndex(1);
+    p: DWordPtr<..> => (M)               Op(0xff), ModRmIndex(1);
+    p: QWordPtr<..> => (M) RexW,         Op(0xff), ModRmIndex(1);
 }}
 
 
@@ -650,10 +506,6 @@ impl<W> Test<Operand, Operand> for W where W: EmitBytes {
             (Reg16(d), Reg16(s)) => Test::write(self, d, s),
             (Reg32(d), Reg32(s)) => Test::write(self, d, s),
             (Reg64(d), Reg64(s)) => Test::write(self, d, s),
-            (Reg8(d), BytePointer(s)) => Test::write(self, d, s),
-            (Reg16(d), WordPointer(s)) => Test::write(self, d, s),
-            (Reg32(d), DWordPointer(s)) => Test::write(self, d, s),
-            (Reg64(d), QWordPointer(s)) => Test::write(self, d, s),
             (BytePointer(d), Imm8(s)) => Test::write(self, d, s),
             (WordPointer(d), Imm16(s)) => Test::write(self, d, s),
             (DWordPointer(d), Imm32(s)) => Test::write(self, d, s),
@@ -667,77 +519,32 @@ impl<W> Test<Operand, Operand> for W where W: EmitBytes {
     }
 }
 
-forward2! { Test {
-    Reg8, Reg8 => &[0x84];
-    Reg16, Reg16 => &[0x85];
-    Reg32, Reg32 => &[0x85];
-    Reg64, Reg64 => &[0x85];
-}}
-
-forward! { Test {
-    r: Reg8, p: BytePointer => (Test::write)(p, r);
-    r: Reg16, p: WordPointer => (Test::write)(p, r);
-    r: Reg32, p: DWordPointer => (Test::write)(p, r);
-    r: Reg64, p: QWordPointer => (Test::write)(p, r);
-}}
-
-forward_ptr! { Test {
-    r: Reg8, p: BytePtr<..> => (Test::write)(p, r);
-    r: Reg16, p: WordPtr<..> => (Test::write)(p, r);
-    r: Reg32, p: DWordPtr<..> => (Test::write)(p, r);
-    r: Reg64, p: QWordPtr<..> => (Test::write)(p, r);
-}}
-
 op! { Test {
-    r: Reg8, imm: u8 =>
-        closure(|buffer| {
-            if r == Reg8::Al {
-                buffer.write_u8(0xa8);
-            } else {
-                try!(write_rex_b(buffer, r));
-                buffer.write_u8(0xf6);
-                buffer.write_u8(modrm(3, 0, r.rm()));
-            }
-            Ok(())
-        }),
-        imm;
-    r: Reg16, imm: u16 =>
-        0x66u8,
-        closure(|buffer| {
-            if r == Reg16::Ax {
-                buffer.write_u8(0xa9);
-            } else {
-                try!(write_rex_b(buffer, r));
-                buffer.write_u8(0xf7);
-                buffer.write_u8(modrm(3, 0, r.rm()));
-            }
-            Ok(())
-        }),
-        imm;
-    r: Reg32, imm: u32 =>
-        closure(|buffer| {
-            if r == Reg32::Eax {
-                buffer.write_u8(0xa9);
-            } else {
-                try!(write_rex_b(buffer, r));
-                buffer.write_u8(0xf7);
-                buffer.write_u8(modrm(3, 0, r.rm()));
-            }
-            Ok(())
-        }),
-        imm;
-    r: Reg64, imm: u32 =>
-        try!(rex_b(r)),
-        closure(|buffer| {
-            if r == Rax {
-                buffer.write_u8(0xa9);
-            } else {
-                buffer.write_u8(0xf7);
-                buffer.write_u8(modrm(3, 0, r.rm()));
-            }
-            Ok(())
-        }),
-        imm;
+    r: Reg8, imm: u8 => if (r == Reg8::Al) {
+        (I) Op(0xa8), Imm8
+    } else {
+        (MI) Op(0xf6), ModRmIndex(0), Imm8
+    };
+    r: Reg16, imm: u16 => if (r == Reg16::Ax) {
+        (I) Prefix(0x66), Op(0xa9), Imm16
+    } else {
+        (MI) Prefix(0x66), Op(0xf7), ModRmIndex(0), Imm16
+    };
+    r: Reg32, imm: u32 => if (r == Reg32::Eax) {
+        (I) Op(0xa9), Imm32
+    } else {
+        (MI) Op(0xf7), ModRmIndex(0), Imm32
+    };
+    r: Reg64, imm: u32 => if (r == Reg64::Rax) {
+        (I) RexW, Op(0xa9), Imm32
+    } else {
+        (MI) RexW, Op(0xf7), ModRmIndex(0), Imm32
+    };
+
+    r1: Reg8,  r2: Reg8  => (MR)               Op(0x84), ModRm;
+    r1: Reg16, r2: Reg16 => (MR) Prefix(0x66), Op(0x85), ModRm;
+    r1: Reg32, r2: Reg32 => (MR)               Op(0x85), ModRm;
+    r1: Reg64, r2: Reg64 => (MR) RexW,         Op(0x85), ModRm;
 }}
 
 dispatch_ptr! { Test {
@@ -752,45 +559,15 @@ dispatch_ptr! { Test {
 }}
 
 op_ptr! { Test {
-    p: BytePtr<..>, imm: u8 =>
-        try!(Rex::rex(p.ptr, ())),
-        0xf6u8,
-        closure(|b| Args::write(b, p.ptr, 0)),
-        imm;
-    p: WordPtr<..>, imm: u16 =>
-        0x66u8,
-        try!(Rex::rex(p.ptr, ())),
-        0xf7u8,
-        closure(|b| Args::write(b, p.ptr, 0)),
-        imm;
-    p: DWordPtr<..>, imm: u32 =>
-        try!(Rex::rex(p.ptr, ())),
-        0xf7u8,
-        closure(|b| Args::write(b, p.ptr, 0)),
-        imm;
-    p: QWordPtr<..>, imm: u32 =>
-        try!(Rex::rex(p.ptr, Rax)),
-        0xf7u8,
-        closure(|b| Args::write(b, p.ptr, 0)),
-        imm;
+    p: BytePtr<..>,  imm: u8  => (MI)               Op(0xf6), ModRmIndex(0), Imm8;
+    p: WordPtr<..>,  imm: u16 => (MI) Prefix(0x66), Op(0xf7), ModRmIndex(0), Imm16;
+    p: DWordPtr<..>, imm: u32 => (MI)               Op(0xf7), ModRmIndex(0), Imm32;
+    p: QWordPtr<..>, imm: u32 => (MI) RexW,         Op(0xf7), ModRmIndex(0), Imm32;
 
-    p: BytePtr<..>, r: Reg8 =>
-        try!(Rex::rex(p.ptr, r)),
-        0x84u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    p: WordPtr<..>, r: Reg16 =>
-        0x66u8,
-        try!(Rex::rex(p.ptr, r)),
-        0x85u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    p: DWordPtr<..>, r: Reg32 =>
-        try!(Rex::rex(p.ptr, r)),
-        0x85u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    p: QWordPtr<..>, r: Reg64 =>
-        try!(Rex::rex(p.ptr, r)),
-        0x85u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
+    p: BytePtr<..>,  r: Reg8  => (MR)               Op(0x84), ModRm;
+    p: WordPtr<..>,  r: Reg16 => (MR) Prefix(0x66), Op(0x85), ModRm;
+    p: DWordPtr<..>, r: Reg32 => (MR)               Op(0x85), ModRm;
+    p: QWordPtr<..>, r: Reg64 => (MR) RexW,         Op(0x85), ModRm;
 }}
 
 
@@ -829,16 +606,16 @@ impl<W> Mov<Operand, Operand> for W where W: EmitBytes {
 }
 
 op! { Mov {
-    dst: Reg8,  src: u8  =>         try!(rex_b(dst)), 0xb0 | dst.rm(), src;
-    dst: Reg16, src: u16 => 0x66u8, try!(rex_b(dst)), 0xb8 | dst.rm(), src;
-    dst: Reg32, src: u32 =>         try!(rex_b(dst)), 0xb8 | dst.rm(), src;
-    dst: Reg64, src: u64 =>         try!(rex_b(dst)), 0xb8 | dst.rm(), src;
-    dst: Reg64, src: u32 => try!(rex_b(dst)), 0xc7u8, modrm(3, 0, dst.rm()), src;
+    dst: Reg8,  src: u8  => (OI)               OpPlusReg(0xb0), Imm8;
+    dst: Reg16, src: u16 => (OI) Prefix(0x66), OpPlusReg(0xb8), Imm16;
+    dst: Reg32, src: u32 => (OI)               OpPlusReg(0xb8), Imm32;
+    dst: Reg64, src: u64 => (OI) RexW,         OpPlusReg(0xb8), Imm64;
+    dst: Reg64, src: u32 => (MI) RexW, Op(0xc7), ModRmIndex(0), Imm32;
 
-    dst: Reg8, src: Reg8 =>           try!(rex_rb(dst, src)), 0x8au8, modrm(3, dst.rm(), src.rm());
-    dst: Reg16, src: Reg16 => 0x66u8, try!(rex_rb(dst, src)), 0x8bu8, modrm(3, dst.rm(), src.rm());
-    dst: Reg32, src: Reg32 =>         try!(rex_rb(dst, src)), 0x8bu8, modrm(3, dst.rm(), src.rm());
-    dst: Reg64, src: Reg64 =>         try!(rex_rb(dst, src)), 0x8bu8, modrm(3, dst.rm(), src.rm());
+    dst: Reg8,  src: Reg8  => (MR)               Op(0x88), ModRm;
+    dst: Reg16, src: Reg16 => (MR) Prefix(0x66), Op(0x89), ModRm;
+    dst: Reg32, src: Reg32 => (MR)               Op(0x89), ModRm;
+    dst: Reg64, src: Reg64 => (MR) RexW,         Op(0x89), ModRm;
 }}
 
 dispatch_ptr! { Mov {
@@ -857,59 +634,20 @@ dispatch_ptr! { Mov {
 }}
 
 op_ptr! { Mov {
-    r: Reg8, p: BytePtr<..> =>
-        try!(Rex::rex(p.ptr, r)),
-        0x8au8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    r: Reg16, p: WordPtr<..> =>
-        0x66u8,
-        try!(Rex::rex(p.ptr, r)),
-        0x8bu8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    r: Reg32, p: DWordPtr<..> =>
-        try!(Rex::rex(p.ptr, r)),
-        0x8bu8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    r: Reg64, p: QWordPtr<..> =>
-        try!(Rex::rex(p.ptr, r)),
-        0x8bu8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
+    r: Reg8,  p: BytePtr<..>  => (RM)               Op(0x8a), ModRm;
+    r: Reg16, p: WordPtr<..>  => (RM) Prefix(0x66), Op(0x8b), ModRm;
+    r: Reg32, p: DWordPtr<..> => (RM)               Op(0x8b), ModRm;
+    r: Reg64, p: QWordPtr<..> => (RM) RexW,         Op(0x8b), ModRm;
 
-    p: BytePtr<..>, imm: u8 =>
-        try!(Rex::rex(p.ptr, ())), 0xc6u8,
-        closure(|b| Args::write(b, p.ptr, 0)),
-        imm;
-    p: WordPtr<..>, imm: u16 =>
-        0x66u8,
-        try!(Rex::rex(p.ptr, ())), 0xc7u8,
-        closure(|b| Args::write(b, p.ptr, 0)),
-        imm;
-    p: DWordPtr<..>, imm: u32 =>
-        try!(Rex::rex(p.ptr, ())), 0xc7u8,
-        closure(|b| Args::write(b, p.ptr, 0)),
-        imm;
-    p: QWordPtr<..>, imm: u32 =>
-        try!(Rex::rex(p.ptr, Rax)), 0xc7u8,
-        closure(|b| Args::write(b, p.ptr, 0)),
-        imm;
+    p: BytePtr<..>,  imm: u8  => (MI)               Op(0xc6), ModRmIndex(0), Imm8;
+    p: WordPtr<..>,  imm: u16 => (MI) Prefix(0x66), Op(0xc7), ModRmIndex(0), Imm16;
+    p: DWordPtr<..>, imm: u32 => (MI)               Op(0xc7), ModRmIndex(0), Imm32;
+    p: QWordPtr<..>, imm: u32 => (MI) RexW,         Op(0xc7), ModRmIndex(0), Imm32;
 
-    p: BytePtr<..>, r: Reg8 =>
-        try!(Rex::rex(p.ptr, r)),
-        0x88u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    p: WordPtr<..>, r: Reg16 =>
-        0x66u8,
-        try!(Rex::rex(p.ptr, r)),
-        0x89u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    p: DWordPtr<..>, r: Reg32 =>
-        try!(Rex::rex(p.ptr, r)),
-        0x89u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    p: QWordPtr<..>, r: Reg64 =>
-        try!(Rex::rex(p.ptr, r)),
-        0x89u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
+    p: BytePtr<..>,  r: Reg8  => (MR)               Op(0x88), ModRm;
+    p: WordPtr<..>,  r: Reg16 => (MR) Prefix(0x66), Op(0x89), ModRm;
+    p: DWordPtr<..>, r: Reg32 => (MR)               Op(0x89), ModRm;
+    p: QWordPtr<..>, r: Reg64 => (MR) RexW,         Op(0x89), ModRm;
 }}
 
 
@@ -934,11 +672,11 @@ impl<W> Push<Operand> for W where W: EmitBytes {
 }
 
 op! { Push {
-    imm: u8 =>          0x6au8, imm;
-    imm: u16 => 0x66u8, 0x68u8, imm;
-    imm: u32 =>         0x68u8, imm;
-    reg: Reg16 => 0x66u8, try!(rex_b(reg)), 0x50 | reg.rm();
-    reg: Reg64 => try!(rex_b(reg.to_reg32())), 0x50 | reg.rm();
+    imm: u8  => (I)               Op(0x6a), Imm8;
+    imm: u16 => (I) Prefix(0x66), Op(0x68), Imm16;
+    imm: u32 => (I)               Op(0x68), Imm32;
+    reg: Reg16 => (O) Prefix(0x66), OpPlusReg(0x50);
+    reg: Reg64 => (O)               OpPlusReg(0x50);
 }}
 
 dispatch_ptr! { Push {
@@ -947,8 +685,8 @@ dispatch_ptr! { Push {
 }}
 
 op_ptr! { Push {
-    p: WordPtr<..> => 0x66u8, try!(Rex::rex(p.ptr, ())), 0xffu8, closure(|b| Args::write(b, p.ptr, 6));
-    p: QWordPtr<..> =>        try!(Rex::rex(p.ptr, ())), 0xffu8, closure(|b| Args::write(b, p.ptr, 6));
+    p: WordPtr<..>  => (M) Prefix(0x66), Op(0xff), ModRmIndex(6);
+    p: QWordPtr<..> => (M)               Op(0xff), ModRmIndex(6);
 }}
 
 
@@ -970,8 +708,8 @@ impl<W> Pop<Operand> for W where W: EmitBytes {
 }
 
 op! { Pop {
-    reg: Reg16 => 0x66u8, try!(rex_b(reg)), 0x58 | reg.rm();
-    reg: Reg64 => try!(rex_b(reg.to_reg32())), 0x58 | reg.rm();
+    reg: Reg16 => (O) Prefix(0x66), OpPlusReg(0x58);
+    reg: Reg64 => (O)               OpPlusReg(0x58);
 }}
 
 dispatch_ptr! { Pop {
@@ -980,8 +718,8 @@ dispatch_ptr! { Pop {
 }}
 
 op_ptr! { Pop {
-    p: WordPtr<..> => 0x66u8, try!(Rex::rex(p.ptr, ())), 0x8fu8, closure(|b| Args::write(b, p.ptr, 0));
-    p: QWordPtr<..> =>        try!(Rex::rex(p.ptr, ())), 0x8fu8, closure(|b| Args::write(b, p.ptr, 0));
+    p: WordPtr<..>  => (M) Prefix(0x66), Op(0x8f), ModRmIndex(0);
+    p: QWordPtr<..> => (M)               Op(0x8f), ModRmIndex(0);
 }}
 
 
@@ -1000,7 +738,7 @@ impl<W> Call<Operand> for W where W: EmitBytes {
 }
 
 op! { Call {
-    r: Reg64 => try!(rex_b(r.to_reg32())), 0xffu8, modrm(3, 2, r.rm());
+    r: Reg64 => (M) Op(0xff), ModRmIndex(2);
 }}
 
 
@@ -1039,8 +777,8 @@ impl<W> Jmp<HoleKind> for W where W: EmitBytes {
 }
 
 op! { Jmp => () {
-    imm: i8 => 0xebu8, imm;
-    imm: i32 => 0xe9u8, imm;
+    imm: i8  => (D) Op(0xeb), Imm8;
+    imm: i32 => (D) Op(0xe9), Imm32;
 }}
 
 
@@ -1048,12 +786,9 @@ pub trait Ret: EmitBytes {
     fn write(&mut self) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Ret for W where W: EmitBytes {
-    fn write(&mut self) -> Result<(), Error<Self::Error>> {
-        try!(self.write(&[0xc3]));
-        Ok(())
-    }
-}
+op! { Ret {
+    => (None) Op(0xc3);
+}}
 
 
 macro_rules! cc_op {
@@ -1078,10 +813,10 @@ macro_rules! cc_op {
             }
         }
 
-        forward2! { $Cmov {
-            Reg16, Reg16 => &[0x0f, 0x40 | cond::$cond.0];
-            Reg32, Reg32 => &[0x0f, 0x40 | cond::$cond.0];
-            Reg64, Reg64 => &[0x0f, 0x40 | cond::$cond.0];
+        op! { $Cmov {
+            dst: Reg16, src: Reg16 => (RM) Prefix(0x66), Op(0x0f), Op(0x40 | cond::$cond.0), ModRm;
+            dst: Reg32, src: Reg32 => (RM)               Op(0x0f), Op(0x40 | cond::$cond.0), ModRm;
+            dst: Reg64, src: Reg64 => (RM) RexW,         Op(0x0f), Op(0x40 | cond::$cond.0), ModRm;
         }}
 
         dispatch_ptr! { $Cmov {
@@ -1091,19 +826,12 @@ macro_rules! cc_op {
         }}
 
         op_ptr! { $Cmov {
-            r: Reg16, p: WordPtr<..> =>
-                0x66u8,
-                try!(Rex::rex(p.ptr, r)),
-                0x0fu8, 0x40 | cond::$cond.0,
-                closure(|b| Args::write(b, p.ptr, r.rm()));
-            r: Reg32, p: DWordPtr<..> =>
-                try!(Rex::rex(p.ptr, r)),
-                0x0fu8, 0x40 | cond::$cond.0,
-                closure(|b| Args::write(b, p.ptr, r.rm()));
-            r: Reg64, p: QWordPtr<..> =>
-                try!(Rex::rex(p.ptr, r)),
-                0x0fu8, 0x40 | cond::$cond.0,
-                closure(|b| Args::write(b, p.ptr, r.rm()));
+            dst: Reg16, src: WordPtr<..> =>
+                (RM) Prefix(0x66), Op(0x0f), Op(0x40 | cond::$cond.0), ModRm;
+            dst: Reg32, src: DWordPtr<..> =>
+                (RM) Op(0x0f), Op(0x40 | cond::$cond.0), ModRm;
+            dst: Reg64, src: QWordPtr<..> =>
+                (RM) RexW, Op(0x0f), Op(0x40 | cond::$cond.0), ModRm;
         }}
 
 
@@ -1143,8 +871,8 @@ macro_rules! cc_op {
         }
 
         op! { $J => () {
-            off: i8  =>         0x70 | cond::$cond.0, off;
-            off: i32 => 0x0fu8, 0x80 | cond::$cond.0, off;
+            off: i8  => (D)           Op(0x70 | cond::$cond.0), Imm8;
+            off: i32 => (D) Op(0x0f), Op(0x80 | cond::$cond.0), Imm32;
         }}
 
 
@@ -1164,7 +892,7 @@ macro_rules! cc_op {
         }
 
         op! { $Set {
-            r: Reg8 => try!(rex_b(r)), 0x0fu8, 0x90 | cond::$cond.0, modrm(3, 0, r.rm());
+            r: Reg8 => (M) Op(0x0f), Op(0x90 | cond::$cond.0), ModRmIndex(0);
         }}
 
         dispatch_ptr! { $Set {
@@ -1172,10 +900,7 @@ macro_rules! cc_op {
         }}
 
         op_ptr! { $Set {
-            p: BytePtr<..> =>
-                try!(Rex::rex(p.ptr, ())),
-                0x0fu8, 0x90 | cond::$cond.0,
-                closure(|b| Args::write(b, p.ptr, 0));
+            p: BytePtr<..> => (M) Op(0x0f), Op(0x90 | cond::$cond.0), ModRmIndex(0);
         }}
         )*
     };
@@ -1237,20 +962,11 @@ dispatch_ptr! { Lea {
     Reg64, @QWordPointer => QWordPtr;
 }}
 
+
 op_ptr! { Lea {
-    dst: Reg16, p: WordPtr<..> =>
-        0x66u8,
-        try!(Rex::rex(p.ptr, dst)),
-        0x8du8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
-    dst: Reg32, p: DWordPtr<..> =>
-        try!(Rex::rex(p.ptr, dst)),
-        0x8du8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
-    dst: Reg64, p: QWordPtr<..> =>
-        try!(Rex::rex(p.ptr, dst)),
-        0x8du8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
+    dst: Reg16, p: WordPtr<..>  => (RM) Prefix(0x66), Op(0x8d), ModRm;
+    dst: Reg32, p: DWordPtr<..> => (RM)               Op(0x8d), ModRm;
+    dst: Reg64, p: QWordPtr<..> => (RM) RexW,         Op(0x8d), ModRm;
 }}
 
 
@@ -1277,12 +993,12 @@ impl<W> Movzx<Operand, Operand> for W where W: EmitBytes {
     }
 }
 
-forward2! { Movzx {
-    Reg16, Reg8 => &[0x0f, 0xb6];
-    Reg32, Reg8 => &[0x0f, 0xb6];
-    Reg64, Reg8 => &[0x0f, 0xb6];
-    Reg32, Reg16 => &[0x0f, 0xb7];
-    Reg64, Reg16 => &[0x0f, 0xb7];
+op! { Movzx {
+    dst: Reg16, src: Reg8 => (RM) Prefix(0x66), Op(0x0f), Op(0xb6), ModRm;
+    dst: Reg32, src: Reg8 => (RM)               Op(0x0f), Op(0xb6), ModRm;
+    dst: Reg64, src: Reg8 => (RM) RexW,         Op(0x0f), Op(0xb6), ModRm;
+    dst: Reg32, src: Reg16 => (RM)       Op(0x0f), Op(0xb7), ModRm;
+    dst: Reg64, src: Reg16 => (RM) RexW, Op(0x0f), Op(0xb7), ModRm;
 }}
 
 dispatch_ptr! { Movzx {
@@ -1294,28 +1010,11 @@ dispatch_ptr! { Movzx {
 }}
 
 op_ptr! { Movzx {
-    dst: Reg16, p: BytePtr<..> =>
-        0x66u8,
-        try!(Rex::rex(p.ptr, dst)),
-        0x0fu8, 0xb6u8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
-    dst: Reg32, p: BytePtr<..> =>
-        try!(Rex::rex(p.ptr, dst)),
-        0x0fu8, 0xb6u8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
-    dst: Reg64, p: BytePtr<..> =>
-        try!(Rex::rex(p.ptr, dst)),
-        0x0fu8, 0xb6u8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
-
-    dst: Reg32, p: WordPtr<..> =>
-        try!(Rex::rex(p.ptr, dst)),
-        0x0fu8, 0xb7u8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
-    dst: Reg64, p: WordPtr<..> =>
-        try!(Rex::rex(p.ptr, dst)),
-        0x0fu8, 0xb7u8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
+    dst: Reg16, src: BytePtr<..> => (RM) Prefix(0x66), Op(0x0f), Op(0xb6), ModRm;
+    dst: Reg32, src: BytePtr<..> => (RM)               Op(0x0f), Op(0xb6), ModRm;
+    dst: Reg64, src: BytePtr<..> => (RM) RexW,         Op(0x0f), Op(0xb6), ModRm;
+    dst: Reg32, src: WordPtr<..> => (RM)       Op(0x0f), Op(0xb7), ModRm;
+    dst: Reg64, src: WordPtr<..> => (RM) RexW, Op(0x0f), Op(0xb7), ModRm;
 }}
 
 
@@ -1342,12 +1041,12 @@ impl<W> Movsx<Operand, Operand> for W where W: EmitBytes {
     }
 }
 
-forward2! { Movsx {
-    Reg16, Reg8 => &[0x0f, 0xbe];
-    Reg32, Reg8 => &[0x0f, 0xbe];
-    Reg64, Reg8 => &[0x0f, 0xbe];
-    Reg32, Reg16 => &[0x0f, 0xbf];
-    Reg64, Reg16 => &[0x0f, 0xbf];
+op! { Movsx {
+    dst: Reg16, src: Reg8 => (RM) Prefix(0x66), Op(0x0f), Op(0xbe), ModRm;
+    dst: Reg32, src: Reg8 => (RM)               Op(0x0f), Op(0xbe), ModRm;
+    dst: Reg64, src: Reg8 => (RM) RexW,         Op(0x0f), Op(0xbe), ModRm;
+    dst: Reg32, src: Reg16 => (RM)       Op(0x0f), Op(0xbf), ModRm;
+    dst: Reg64, src: Reg16 => (RM) RexW, Op(0x0f), Op(0xbf), ModRm;
 }}
 
 dispatch_ptr! { Movsx {
@@ -1359,28 +1058,11 @@ dispatch_ptr! { Movsx {
 }}
 
 op_ptr! { Movsx {
-    dst: Reg16, p: BytePtr<..> =>
-        0x66u8,
-        try!(Rex::rex(p.ptr, dst)),
-        0x0fu8, 0xbeu8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
-    dst: Reg32, p: BytePtr<..> =>
-        try!(Rex::rex(p.ptr, dst)),
-        0x0fu8, 0xbeu8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
-    dst: Reg64, p: BytePtr<..> =>
-        try!(Rex::rex(p.ptr, dst)),
-        0x0fu8, 0xbeu8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
-
-    dst: Reg32, p: WordPtr<..> =>
-        try!(Rex::rex(p.ptr, dst)),
-        0x0fu8, 0xbfu8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
-    dst: Reg64, p: WordPtr<..> =>
-        try!(Rex::rex(p.ptr, dst)),
-        0x0fu8, 0xbfu8,
-        closure(|b| Args::write(b, p.ptr, dst.rm()));
+    dst: Reg16, src: BytePtr<..> => (RM) Prefix(0x66), Op(0x0f), Op(0xbe), ModRm;
+    dst: Reg32, src: BytePtr<..> => (RM)               Op(0x0f), Op(0xbe), ModRm;
+    dst: Reg64, src: BytePtr<..> => (RM) RexW,         Op(0x0f), Op(0xbe), ModRm;
+    dst: Reg32, src: WordPtr<..> => (RM)       Op(0x0f), Op(0xbf), ModRm;
+    dst: Reg64, src: WordPtr<..> => (RM) RexW, Op(0x0f), Op(0xbf), ModRm;
 }}
 
 
@@ -1388,12 +1070,9 @@ pub trait Cdq: EmitBytes {
     fn write(&mut self) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Cdq for W where W: EmitBytes {
-    fn write(&mut self) -> Result<(), Error<Self::Error>> {
-        try!(self.write(&[0x99]));
-        Ok(())
-    }
-}
+op! { Cdq {
+    => (None) Op(0x99);
+}}
 
 
 pub trait Xchg<D, S>: EmitBytes {
@@ -1422,53 +1101,31 @@ impl<W> Xchg<Operand, Operand> for W where W: EmitBytes {
 }
 
 op! { Xchg {
-    dst: Reg8, src: Reg8 => try!(rex_rb(src, dst)), 0x86u8, modrm(3, src.rm(), dst.rm());
+    dst: Reg8, src: Reg8 => (MR) Op(0x86), ModRm;
     dst: Reg16, src: Reg16 =>
-        0x66u8,
-        closure(|buffer| {
-            if dst == Reg16::Ax {
-                try!(write_rex_b(buffer, src));
-                buffer.write_u8(0x90 | src.rm());
-            } else if src == Reg16::Ax {
-                try!(write_rex_b(buffer, dst));
-                buffer.write_u8(0x90 | dst.rm());
-            } else {
-                try!(write_rex_rb(buffer, src, dst));
-                buffer.write_u8(0x87);
-                buffer.write_u8(modrm(3, src.rm(), dst.rm()));
-            }
-            Ok(())
-        });
+        if (dst == Reg16::Ax) {
+            (XchgSrc) Prefix(0x66), OpPlusReg(0x90)
+        } else if (src == Reg16::Ax) {
+            (XchgDst) Prefix(0x66), OpPlusReg(0x90)
+        } else {
+            (MR) Prefix(0x66), Op(0x87), ModRm
+        };
     dst: Reg32, src: Reg32 =>
-        closure(|buffer| {
-            if dst == Reg32::Eax {
-                try!(write_rex_b(buffer, src));
-                buffer.write_u8(0x90 | src.rm());
-            } else if src == Reg32::Eax {
-                try!(write_rex_b(buffer, dst));
-                buffer.write_u8(0x90 | dst.rm());
-            } else {
-                try!(write_rex_rb(buffer, src, dst));
-                buffer.write_u8(0x87);
-                buffer.write_u8(modrm(3, src.rm(), dst.rm()));
-            }
-            Ok(())
-        });
+        if (dst == Reg32::Eax) {
+            (XchgSrc) OpPlusReg(0x90)
+        } else if (src == Reg32::Eax) {
+            (XchgDst) OpPlusReg(0x90)
+        } else {
+            (MR) Op(0x87), ModRm
+        };
     dst: Reg64, src: Reg64 =>
-        closure(|buffer| {
-            if dst == Rax {
-                try!(write_rex_b(buffer, src));
-                buffer.write_u8(0x90 | src.rm());
-            } else if src == Rax {
-                try!(write_rex_b(buffer, dst));
-                buffer.write_u8(0x90 | dst.rm());
-            } else {
-                try!(write_rex_rb(buffer, src, dst));
-                buffer.write_u8(0x87);
-                buffer.write_u8(modrm(3, src.rm(), dst.rm()));
-            }
-            Ok(())
-        });
+        if (dst == Reg64::Rax) {
+            (XchgSrc) RexW, OpPlusReg(0x90)
+        } else if (src == Reg64::Rax) {
+            (XchgDst) RexW, OpPlusReg(0x90)
+        } else {
+            (MR) RexW, Op(0x87), ModRm
+        };
 }}
 
 dispatch_ptr! { Xchg {
@@ -1484,39 +1141,13 @@ dispatch_ptr! { Xchg {
 }}
 
 op_ptr! { Xchg {
-    r: Reg8, p: BytePtr<..> =>
-        try!(Rex::rex(p.ptr, r)),
-        0x86u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    r: Reg16, p: WordPtr<..> =>
-        0x66u8,
-        try!(Rex::rex(p.ptr, r)),
-        0x87u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    r: Reg32, p: DWordPtr<..> =>
-        try!(Rex::rex(p.ptr, r)),
-        0x87u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    r: Reg64, p: QWordPtr<..> =>
-        try!(Rex::rex(p.ptr, r)),
-        0x87u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
+    r: Reg8,  p: BytePtr<..>  => (RM)               Op(0x86), ModRm;
+    r: Reg16, p: WordPtr<..>  => (RM) Prefix(0x66), Op(0x87), ModRm;
+    r: Reg32, p: DWordPtr<..> => (RM)               Op(0x87), ModRm;
+    r: Reg64, p: QWordPtr<..> => (RM) RexW,         Op(0x87), ModRm;
 
-    p: BytePtr<..>, r: Reg8 =>
-        try!(Rex::rex(p.ptr, r)),
-        0x86u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    p: WordPtr<..>, r: Reg16 =>
-        0x66u8,
-        try!(Rex::rex(p.ptr, r)),
-        0x87u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    p: DWordPtr<..>, r: Reg32 =>
-        try!(Rex::rex(p.ptr, r)),
-        0x87u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
-    p: QWordPtr<..>, r: Reg64 =>
-        try!(Rex::rex(p.ptr, r)),
-        0x87u8,
-        closure(|b| Args::write(b, p.ptr, r.rm()));
+    p: BytePtr<..>,  r: Reg8  => (MR)               Op(0x86), ModRm;
+    p: WordPtr<..>,  r: Reg16 => (MR) Prefix(0x66), Op(0x87), ModRm;
+    p: DWordPtr<..>, r: Reg32 => (MR)               Op(0x87), ModRm;
+    p: QWordPtr<..>, r: Reg64 => (MR) RexW,         Op(0x87), ModRm;
 }}
