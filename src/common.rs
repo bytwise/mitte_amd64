@@ -3,7 +3,7 @@ use std::fmt;
 use buffer::Buffer;
 use reg::Reg64;
 use ptr::{Scale, Scaled};
-use ptr::Ptr;
+use ptr::{Ptr, Pointer};
 use error::Error;
 
 
@@ -338,6 +338,60 @@ impl<D> Rex for Ptr<Reg64, Scaled<Reg64>, D> {
         where R: Register
     {
         rex_rxb(reg, self.index.0.to_reg32(), self.base.to_reg32())
+    }
+}
+
+impl Rex for Pointer {
+    fn rex(&self) -> Result<Option<u8>, Error<NoError>> {
+        use ptr::Pointer::*;
+        match *self {
+            Disp8(_) |
+            Disp32(_) => {
+                Ok(None)
+            }
+            Base(base) |
+            BaseDisp8(base, _) |
+            BaseDisp32(base, _) => {
+                rex_b(base.to_reg32())
+            }
+            Index(Scaled(index, _)) |
+            IndexDisp8(Scaled(index, _), _) |
+            IndexDisp32(Scaled(index, _), _) => {
+                rex_x(index.to_reg32())
+            }
+            BaseIndex(base, Scaled(index, _)) |
+            BaseIndexDisp8(base, Scaled(index, _), _) |
+            BaseIndexDisp32(base, Scaled(index, _), _) => {
+                rex_xb(index.to_reg32(), base.to_reg32())
+            }
+        }
+    }
+
+    fn rex_reg<R>(&self, reg: R) -> Result<Option<u8>, Error<NoError>>
+        where R: Register
+    {
+        use ptr::Pointer::*;
+        match *self {
+            Disp8(_) |
+            Disp32(_) => {
+                rex_r(reg)
+            }
+            Base(base) |
+            BaseDisp8(base, _) |
+            BaseDisp32(base, _) => {
+                rex_rb(reg, base.to_reg32())
+            }
+            Index(Scaled(index, _)) |
+            IndexDisp8(Scaled(index, _), _) |
+            IndexDisp32(Scaled(index, _), _) => {
+                rex_rx(reg, index.to_reg32())
+            }
+            BaseIndex(base, Scaled(index, _)) |
+            BaseIndexDisp8(base, Scaled(index, _), _) |
+            BaseIndexDisp32(base, Scaled(index, _), _) => {
+                rex_rxb(reg, index.to_reg32(), base.to_reg32())
+            }
+        }
     }
 }
 
