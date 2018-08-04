@@ -277,7 +277,7 @@ impl Encode<M, Reg64> for (RexW, Op, ModRmIndex) {
 
 impl<B, X, D> Encode<M, BytePtr<B, X, D>> for (Op, Op, ModRmIndex)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<()>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, ptr: BytePtr<B, X, D>, this: Self)
@@ -287,7 +287,7 @@ impl<B, X, D> Encode<M, BytePtr<B, X, D>> for (Op, Op, ModRmIndex)
         let (Op(op1), Op(op2), ModRmIndex(modrm_index)) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), ())? {
+        if let Some(rex) = ptr.rex()? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op1);
@@ -300,7 +300,7 @@ impl<B, X, D> Encode<M, BytePtr<B, X, D>> for (Op, Op, ModRmIndex)
 
 impl<B, X, D> Encode<M, BytePtr<B, X, D>> for (Op, ModRmIndex)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<()>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, ptr: BytePtr<B, X, D>, this: Self)
@@ -310,7 +310,7 @@ impl<B, X, D> Encode<M, BytePtr<B, X, D>> for (Op, ModRmIndex)
         let (Op(op), ModRmIndex(modrm_index)) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), ())? {
+        if let Some(rex) = ptr.rex()? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -322,7 +322,7 @@ impl<B, X, D> Encode<M, BytePtr<B, X, D>> for (Op, ModRmIndex)
 
 impl<B, X, D> Encode<M, WordPtr<B, X, D>> for (Prefix, Op, ModRmIndex)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<()>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, ptr: WordPtr<B, X, D>, this: Self)
@@ -333,7 +333,7 @@ impl<B, X, D> Encode<M, WordPtr<B, X, D>> for (Prefix, Op, ModRmIndex)
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
         buffer.write_u8(prefix);
-        if let Some(rex) = Rex::rex(ptr.clone(), ())? {
+        if let Some(rex) = ptr.rex()? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -345,7 +345,7 @@ impl<B, X, D> Encode<M, WordPtr<B, X, D>> for (Prefix, Op, ModRmIndex)
 
 impl<B, X, D> Encode<M, DWordPtr<B, X, D>> for (Op, ModRmIndex)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<()>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, ptr: DWordPtr<B, X, D>, this: Self)
@@ -355,7 +355,7 @@ impl<B, X, D> Encode<M, DWordPtr<B, X, D>> for (Op, ModRmIndex)
         let (Op(op), ModRmIndex(modrm_index)) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), ())? {
+        if let Some(rex) = ptr.rex()? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -367,7 +367,7 @@ impl<B, X, D> Encode<M, DWordPtr<B, X, D>> for (Op, ModRmIndex)
 
 impl<B, X, D> Encode<M, QWordPtr<B, X, D>> for (Op, ModRmIndex)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<()>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, ptr: QWordPtr<B, X, D>, this: Self)
@@ -377,7 +377,7 @@ impl<B, X, D> Encode<M, QWordPtr<B, X, D>> for (Op, ModRmIndex)
         let (Op(op), ModRmIndex(modrm_index)) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), ())? {
+        if let Some(rex) = ptr.rex()? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -389,7 +389,7 @@ impl<B, X, D> Encode<M, QWordPtr<B, X, D>> for (Op, ModRmIndex)
 
 impl<B, X, D> Encode<M, QWordPtr<B, X, D>> for (RexW, Op, ModRmIndex)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<()>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, ptr: QWordPtr<B, X, D>, this: Self)
@@ -399,7 +399,7 @@ impl<B, X, D> Encode<M, QWordPtr<B, X, D>> for (RexW, Op, ModRmIndex)
         let (RexW, Op(op), ModRmIndex(modrm_index)) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        buffer.write_u8(Rex::rexw(ptr.clone(), ())?);
+        buffer.write_u8(ptr.rexw()?);
         buffer.write_u8(op);
         Args::write(&mut buffer, ptr, modrm_index)?;
         emitter.write(&buffer)?;
@@ -489,7 +489,7 @@ impl Encode<MR, (Reg8, Reg8)> for (Op, ModRm) {
 
 impl<B, X, D> Encode<RM, (Reg8, BytePtr<B, X, D>)> for (Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg8>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg8, BytePtr<B, X, D>), this: Self)
@@ -499,7 +499,7 @@ impl<B, X, D> Encode<RM, (Reg8, BytePtr<B, X, D>)> for (Op, ModRm)
         let (Op(op), ModRm) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), reg)? {
+        if let Some(rex) = ptr.rex_reg(reg)? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -684,7 +684,7 @@ impl Encode<RM, (Reg16, Reg16)> for (Prefix, Op, Op, ModRm) {
 
 impl<B, X, D> Encode<RM, (Reg16, BytePtr<B, X, D>)> for (Prefix, Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg16>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg16, BytePtr<B, X, D>), this: Self)
@@ -695,7 +695,7 @@ impl<B, X, D> Encode<RM, (Reg16, BytePtr<B, X, D>)> for (Prefix, Op, Op, ModRm)
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
         buffer.write_u8(prefix);
-        if let Some(rex) = Rex::rex(ptr.clone(), reg)? {
+        if let Some(rex) = ptr.rex_reg(reg)? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op1);
@@ -708,7 +708,7 @@ impl<B, X, D> Encode<RM, (Reg16, BytePtr<B, X, D>)> for (Prefix, Op, Op, ModRm)
 
 impl<B, X, D> Encode<RM, (Reg16, WordPtr<B, X, D>)> for (Prefix, Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg16>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg16, WordPtr<B, X, D>), this: Self)
@@ -719,7 +719,7 @@ impl<B, X, D> Encode<RM, (Reg16, WordPtr<B, X, D>)> for (Prefix, Op, ModRm)
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
         buffer.write_u8(prefix);
-        if let Some(rex) = Rex::rex(ptr.clone(), reg)? {
+        if let Some(rex) = ptr.rex_reg(reg)? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -731,7 +731,7 @@ impl<B, X, D> Encode<RM, (Reg16, WordPtr<B, X, D>)> for (Prefix, Op, ModRm)
 
 impl<B, X, D> Encode<RM, (Reg16, WordPtr<B, X, D>)> for (Prefix, Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg16>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg16, WordPtr<B, X, D>), this: Self)
@@ -742,7 +742,7 @@ impl<B, X, D> Encode<RM, (Reg16, WordPtr<B, X, D>)> for (Prefix, Op, Op, ModRm)
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
         buffer.write_u8(prefix);
-        if let Some(rex) = Rex::rex(ptr.clone(), reg)? {
+        if let Some(rex) = ptr.rex_reg(reg)? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op1);
@@ -935,7 +935,7 @@ impl Encode<RM, (Reg32, Reg32)> for (Op, Op, ModRm) {
 
 impl<B, X, D> Encode<RM, (Reg32, BytePtr<B, X, D>)> for (Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg32>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg32, BytePtr<B, X, D>), this: Self)
@@ -945,7 +945,7 @@ impl<B, X, D> Encode<RM, (Reg32, BytePtr<B, X, D>)> for (Op, Op, ModRm)
         let (Op(op1), Op(op2), ModRm) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), reg)? {
+        if let Some(rex) = ptr.rex_reg(reg)? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op1);
@@ -958,7 +958,7 @@ impl<B, X, D> Encode<RM, (Reg32, BytePtr<B, X, D>)> for (Op, Op, ModRm)
 
 impl<B, X, D> Encode<RM, (Reg32, WordPtr<B, X, D>)> for (Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg32>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg32, WordPtr<B, X, D>), this: Self)
@@ -968,7 +968,7 @@ impl<B, X, D> Encode<RM, (Reg32, WordPtr<B, X, D>)> for (Op, Op, ModRm)
         let (Op(op1), Op(op2), ModRm) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), reg)? {
+        if let Some(rex) = ptr.rex_reg(reg)? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op1);
@@ -981,7 +981,7 @@ impl<B, X, D> Encode<RM, (Reg32, WordPtr<B, X, D>)> for (Op, Op, ModRm)
 
 impl<B, X, D> Encode<RM, (Reg32, DWordPtr<B, X, D>)> for (Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg32>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg32, DWordPtr<B, X, D>), this: Self)
@@ -991,7 +991,7 @@ impl<B, X, D> Encode<RM, (Reg32, DWordPtr<B, X, D>)> for (Op, ModRm)
         let (Op(op), ModRm) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), reg)? {
+        if let Some(rex) = ptr.rex_reg(reg)? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -1003,7 +1003,7 @@ impl<B, X, D> Encode<RM, (Reg32, DWordPtr<B, X, D>)> for (Op, ModRm)
 
 impl<B, X, D> Encode<RM, (Reg32, DWordPtr<B, X, D>)> for (Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg32>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg32, DWordPtr<B, X, D>), this: Self)
@@ -1013,7 +1013,7 @@ impl<B, X, D> Encode<RM, (Reg32, DWordPtr<B, X, D>)> for (Op, Op, ModRm)
         let (Op(op1), Op(op2), ModRm) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), reg)? {
+        if let Some(rex) = ptr.rex_reg(reg)? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op1);
@@ -1213,7 +1213,7 @@ impl Encode<RM, (Reg64, Reg64)> for (RexW, Op, Op, ModRm) {
 
 impl<B, X, D> Encode<RM, (Reg64, BytePtr<B, X, D>)> for (RexW, Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg64>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg64, BytePtr<B, X, D>), this: Self)
@@ -1223,7 +1223,7 @@ impl<B, X, D> Encode<RM, (Reg64, BytePtr<B, X, D>)> for (RexW, Op, Op, ModRm)
         let (RexW, Op(op1), Op(op2), ModRm) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        buffer.write_u8(Rex::rexw(ptr.clone(), reg)?);
+        buffer.write_u8(ptr.rexw_reg(reg)?);
         buffer.write_u8(op1);
         buffer.write_u8(op2);
         Args::write(&mut buffer, ptr, reg.rm())?;
@@ -1234,7 +1234,7 @@ impl<B, X, D> Encode<RM, (Reg64, BytePtr<B, X, D>)> for (RexW, Op, Op, ModRm)
 
 impl<B, X, D> Encode<RM, (Reg64, WordPtr<B, X, D>)> for (RexW, Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg64>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg64, WordPtr<B, X, D>), this: Self)
@@ -1244,7 +1244,7 @@ impl<B, X, D> Encode<RM, (Reg64, WordPtr<B, X, D>)> for (RexW, Op, Op, ModRm)
         let (RexW, Op(op1), Op(op2), ModRm) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        buffer.write_u8(Rex::rexw(ptr.clone(), reg)?);
+        buffer.write_u8(ptr.rexw_reg(reg)?);
         buffer.write_u8(op1);
         buffer.write_u8(op2);
         Args::write(&mut buffer, ptr, reg.rm())?;
@@ -1255,7 +1255,7 @@ impl<B, X, D> Encode<RM, (Reg64, WordPtr<B, X, D>)> for (RexW, Op, Op, ModRm)
 
 impl<B, X, D> Encode<RM, (Reg64, QWordPtr<B, X, D>)> for (RexW, Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg64>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg64, QWordPtr<B, X, D>), this: Self)
@@ -1265,7 +1265,7 @@ impl<B, X, D> Encode<RM, (Reg64, QWordPtr<B, X, D>)> for (RexW, Op, ModRm)
         let (RexW, Op(op), ModRm) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        buffer.write_u8(Rex::rexw(ptr.clone(), reg)?);
+        buffer.write_u8(ptr.rexw_reg(reg)?);
         buffer.write_u8(op);
         Args::write(&mut buffer, ptr, reg.rm())?;
         emitter.write(&buffer)?;
@@ -1275,7 +1275,7 @@ impl<B, X, D> Encode<RM, (Reg64, QWordPtr<B, X, D>)> for (RexW, Op, ModRm)
 
 impl<B, X, D> Encode<RM, (Reg64, QWordPtr<B, X, D>)> for (RexW, Op, Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg64>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (reg, ptr): (Reg64, QWordPtr<B, X, D>), this: Self)
@@ -1285,7 +1285,7 @@ impl<B, X, D> Encode<RM, (Reg64, QWordPtr<B, X, D>)> for (RexW, Op, Op, ModRm)
         let (RexW, Op(op1), Op(op2), ModRm) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        buffer.write_u8(Rex::rexw(ptr.clone(), reg)?);
+        buffer.write_u8(ptr.rexw_reg(reg)?);
         buffer.write_u8(op1);
         buffer.write_u8(op2);
         Args::write(&mut buffer, ptr, reg.rm())?;
@@ -1296,7 +1296,7 @@ impl<B, X, D> Encode<RM, (Reg64, QWordPtr<B, X, D>)> for (RexW, Op, Op, ModRm)
 
 impl<B, X, D> Encode<MI, (BytePtr<B, X, D>, u8)> for (Op, ModRmIndex, Imm8)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<()>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, imm): (BytePtr<B, X, D>, u8), this: Self)
@@ -1306,7 +1306,7 @@ impl<B, X, D> Encode<MI, (BytePtr<B, X, D>, u8)> for (Op, ModRmIndex, Imm8)
         let (Op(op), ModRmIndex(modrm_index), Imm8) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), ())? {
+        if let Some(rex) = ptr.rex()? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -1319,7 +1319,7 @@ impl<B, X, D> Encode<MI, (BytePtr<B, X, D>, u8)> for (Op, ModRmIndex, Imm8)
 
 impl<B, X, D> Encode<MR, (BytePtr<B, X, D>, Reg8)> for (Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg8>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, reg): (BytePtr<B, X, D>, Reg8), this: Self)
@@ -1329,7 +1329,7 @@ impl<B, X, D> Encode<MR, (BytePtr<B, X, D>, Reg8)> for (Op, ModRm)
         let (Op(op), ModRm) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), reg)? {
+        if let Some(rex) = ptr.rex_reg(reg)? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -1341,7 +1341,7 @@ impl<B, X, D> Encode<MR, (BytePtr<B, X, D>, Reg8)> for (Op, ModRm)
 
 impl<B, X, D> Encode<MI, (WordPtr<B, X, D>, u16)> for (Prefix, Op, ModRmIndex, Imm16)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<()>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, imm): (WordPtr<B, X, D>, u16), this: Self)
@@ -1352,7 +1352,7 @@ impl<B, X, D> Encode<MI, (WordPtr<B, X, D>, u16)> for (Prefix, Op, ModRmIndex, I
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
         buffer.write_u8(prefix);
-        if let Some(rex) = Rex::rex(ptr.clone(), ())? {
+        if let Some(rex) = ptr.rex()? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -1365,7 +1365,7 @@ impl<B, X, D> Encode<MI, (WordPtr<B, X, D>, u16)> for (Prefix, Op, ModRmIndex, I
 
 impl<B, X, D> Encode<MR, (WordPtr<B, X, D>, Reg16)> for (Prefix, Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg16>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, reg): (WordPtr<B, X, D>, Reg16), this: Self)
@@ -1376,7 +1376,7 @@ impl<B, X, D> Encode<MR, (WordPtr<B, X, D>, Reg16)> for (Prefix, Op, ModRm)
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
         buffer.write_u8(prefix);
-        if let Some(rex) = Rex::rex(ptr.clone(), reg)? {
+        if let Some(rex) = ptr.rex_reg(reg)? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -1388,7 +1388,7 @@ impl<B, X, D> Encode<MR, (WordPtr<B, X, D>, Reg16)> for (Prefix, Op, ModRm)
 
 impl<B, X, D> Encode<MI, (DWordPtr<B, X, D>, u32)> for (Op, ModRmIndex, Imm32)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<()>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, imm): (DWordPtr<B, X, D>, u32), this: Self)
@@ -1398,7 +1398,7 @@ impl<B, X, D> Encode<MI, (DWordPtr<B, X, D>, u32)> for (Op, ModRmIndex, Imm32)
         let (Op(op), ModRmIndex(modrm_index), Imm32) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), ())? {
+        if let Some(rex) = ptr.rex()? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -1411,7 +1411,7 @@ impl<B, X, D> Encode<MI, (DWordPtr<B, X, D>, u32)> for (Op, ModRmIndex, Imm32)
 
 impl<B, X, D> Encode<MR, (DWordPtr<B, X, D>, Reg32)> for (Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg32>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, reg): (DWordPtr<B, X, D>, Reg32), this: Self)
@@ -1421,7 +1421,7 @@ impl<B, X, D> Encode<MR, (DWordPtr<B, X, D>, Reg32)> for (Op, ModRm)
         let (Op(op), ModRm) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        if let Some(rex) = Rex::rex(ptr.clone(), reg)? {
+        if let Some(rex) = ptr.rex_reg(reg)? {
             buffer.write_u8(rex);
         }
         buffer.write_u8(op);
@@ -1433,7 +1433,7 @@ impl<B, X, D> Encode<MR, (DWordPtr<B, X, D>, Reg32)> for (Op, ModRm)
 
 impl<B, X, D> Encode<MI, (QWordPtr<B, X, D>, u32)> for (RexW, Op, ModRmIndex, Imm32)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<()>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, imm): (QWordPtr<B, X, D>, u32), this: Self)
@@ -1443,7 +1443,7 @@ impl<B, X, D> Encode<MI, (QWordPtr<B, X, D>, u32)> for (RexW, Op, ModRmIndex, Im
         let (RexW, Op(op), ModRmIndex(modrm_index), Imm32) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        buffer.write_u8(Rex::rexw(ptr.clone(), ())?);
+        buffer.write_u8(ptr.rexw()?);
         buffer.write_u8(op);
         Args::write(&mut buffer, ptr, modrm_index)?;
         buffer.write_u32(imm);
@@ -1454,7 +1454,7 @@ impl<B, X, D> Encode<MI, (QWordPtr<B, X, D>, u32)> for (RexW, Op, ModRmIndex, Im
 
 impl<B, X, D> Encode<MR, (QWordPtr<B, X, D>, Reg64)> for (RexW, Op, ModRm)
     where Ptr<B, X, D>: Clone,
-          Ptr<B, X, D>: Rex<Reg64>,
+          Ptr<B, X, D>: Rex,
           Ptr<B, X, D>: Args
 {
     fn encode<E>(emitter: &mut E, (ptr, reg): (QWordPtr<B, X, D>, Reg64), this: Self)
@@ -1464,7 +1464,7 @@ impl<B, X, D> Encode<MR, (QWordPtr<B, X, D>, Reg64)> for (RexW, Op, ModRm)
         let (RexW, Op(op), ModRm) = this;
         let ptr = ptr.ptr;
         let mut buffer = Buffer::new();
-        buffer.write_u8(Rex::rexw(ptr.clone(), reg)?);
+        buffer.write_u8(ptr.rexw_reg(reg)?);
         buffer.write_u8(op);
         Args::write(&mut buffer, ptr, reg.rm())?;
         emitter.write(&buffer)?;

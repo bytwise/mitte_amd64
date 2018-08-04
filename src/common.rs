@@ -275,61 +275,70 @@ pub fn write_reg_base_index_disp32(buffer: &mut Buffer, reg: u8, base: Reg64, in
 }
 
 
-pub trait Rex<T> {
-    fn rex(ptr: Self, arg: T) -> Result<Option<u8>, Error<NoError>>;
+pub trait Rex {
+    fn rex(&self) -> Result<Option<u8>, Error<NoError>>;
+    fn rex_reg<R>(&self, reg: R) -> Result<Option<u8>, Error<NoError>> where R: Register;
 
-    fn rexw(ptr: Self, arg: T) -> Result<u8, Error<NoError>>
+    fn rexw(&self) -> Result<u8, Error<NoError>>
         where Self: Sized
     {
-        Rex::rex(ptr, arg).map(|rex| 0x48 | rex.unwrap_or(0))
+        self.rex().map(|rex| 0x48 | rex.unwrap_or(0))
+    }
+
+    fn rexw_reg<R>(&self, reg: R) -> Result<u8, Error<NoError>>
+        where Self: Sized,
+              R: Register
+    {
+        self.rex_reg(reg).map(|rex| 0x48 | rex.unwrap_or(0))
     }
 }
 
-macro_rules! rex {
-    () => {};
+impl<D> Rex for Ptr<(), (), D> {
+    fn rex(&self) -> Result<Option<u8>, Error<NoError>> {
+        Ok(None)
+    }
 
-    (
-        <$($A:ident : $bound:ident),*>
-        $p:ident : Ptr<$B:ty, $X:ty, _>,
-        $arg:ident : $T:ty => $e:expr;
-        $($rest:tt)*
-    ) => {
-        impl<D, $($A : $bound),*> Rex<$T> for Ptr<$B, $X, D> {
-            fn rex($p: Ptr<$B, $X, D>, $arg: $T) -> Result<Option<u8>, Error<NoError>> {
-                $e
-            }
-        }
-        rex! { $($rest)* }
-    };
-
-    (
-        $p:ident : Ptr<$B:ty, $X:ty, _>,
-        $arg:ident : $T:ty => $e:expr;
-        $($rest:tt)*
-    ) => {
-        impl<D> Rex<$T> for Ptr<$B, $X, D> {
-            fn rex($p: Ptr<$B, $X, D>, $arg: $T) -> Result<Option<u8>, Error<NoError>> {
-                $e
-            }
-        }
-        rex! { $($rest)* }
-    };
+    fn rex_reg<R>(&self, reg: R) -> Result<Option<u8>, Error<NoError>>
+        where R: Register
+    {
+        rex_r(reg)
+    }
 }
 
-rex! {
-    _p: Ptr<(), (), _>,              _a: () => Ok(None);
-    p: Ptr<Reg64, (), _>,            _a: () => rex_b(p.base.to_reg32());
-    p: Ptr<(), Scaled<Reg64>, _>,    _a: () => rex_x(p.index.0.to_reg32());
-    p: Ptr<Reg64, Scaled<Reg64>, _>, _a: () => rex_xb(p.index.0.to_reg32(), p.base.to_reg32());
+impl<D> Rex for Ptr<Reg64, (), D> {
+    fn rex(&self) -> Result<Option<u8>, Error<NoError>> {
+        rex_b(self.base.to_reg32())
+    }
 
-    <R: Register>
-    _p: Ptr<(), (), _>,              reg: R => rex_r(reg);
-    <R: Register>
-    p: Ptr<Reg64, (), _>,            reg: R => rex_rb(reg, p.base.to_reg32());
-    <R: Register>
-    p: Ptr<(), Scaled<Reg64>, _>,    reg: R => rex_rx(reg, p.index.0.to_reg32());
-    <R: Register>
-    p: Ptr<Reg64, Scaled<Reg64>, _>, reg: R => rex_rxb(reg, p.index.0.to_reg32(), p.base.to_reg32());
+    fn rex_reg<R>(&self, reg: R) -> Result<Option<u8>, Error<NoError>>
+        where R: Register
+    {
+        rex_rb(reg, self.base.to_reg32())
+    }
+}
+
+impl<D> Rex for Ptr<(), Scaled<Reg64>, D> {
+    fn rex(&self) -> Result<Option<u8>, Error<NoError>> {
+        rex_x(self.index.0.to_reg32())
+    }
+
+    fn rex_reg<R>(&self, reg: R) -> Result<Option<u8>, Error<NoError>>
+        where R: Register
+    {
+        rex_rx(reg, self.index.0.to_reg32())
+    }
+}
+
+impl<D> Rex for Ptr<Reg64, Scaled<Reg64>, D> {
+    fn rex(&self) -> Result<Option<u8>, Error<NoError>> {
+        rex_xb(self.index.0.to_reg32(), self.base.to_reg32())
+    }
+
+    fn rex_reg<R>(&self, reg: R) -> Result<Option<u8>, Error<NoError>>
+        where R: Register
+    {
+        rex_rxb(reg, self.index.0.to_reg32(), self.base.to_reg32())
+    }
 }
 
 
