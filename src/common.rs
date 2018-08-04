@@ -476,3 +476,33 @@ impl Args for Ptr<Reg64, Scaled<Reg64>, i32> {
         write_reg_base_index_disp32(buffer, reg, p.base, p.index.0, p.index.1, p.disp)
     }
 }
+
+impl Args for Pointer {
+    #[inline]
+    fn write(buffer: &mut Buffer, p: Pointer, reg: u8) -> Result<(), Error<NoError>> {
+        use ptr::Pointer::*;
+        match p {
+            Disp8(disp) => write_reg_disp(buffer, reg, disp as i32),
+            Disp32(disp) => write_reg_disp(buffer, reg, disp),
+            Base(base) => write_reg_base(buffer, reg, base),
+            BaseDisp8(base, disp) => write_reg_base_disp8(buffer, reg, base, disp),
+            BaseDisp32(base, disp) => write_reg_base_disp32(buffer, reg, base, disp),
+            Index(Scaled(index, scale)) => write_reg_index(buffer, reg, index, scale),
+            IndexDisp8(Scaled(index, scale), disp) => {
+                write_reg_index_disp(buffer, reg, index, scale, disp as i32)
+            }
+            IndexDisp32(Scaled(index, scale), disp) => {
+                write_reg_index_disp(buffer, reg, index, scale, disp)
+            }
+            BaseIndex(base, Scaled(index, scale)) => {
+                write_reg_base_index(buffer, reg, base, index, scale)
+            }
+            BaseIndexDisp8(base, Scaled(index, scale), disp) => {
+                write_reg_base_index_disp8(buffer, reg, base, index, scale, disp)
+            }
+            BaseIndexDisp32(base, Scaled(index, scale), disp) => {
+                write_reg_base_index_disp32(buffer, reg, base, index, scale, disp)
+            }
+        }
+    }
+}
