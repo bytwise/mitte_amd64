@@ -1,8 +1,6 @@
 use EmitBytes;
 use reg::{Reg8, Reg16, Reg32, Reg64};
-use ptr::Scaled;
-use ptr::{Ptr, BytePtr, WordPtr, DWordPtr, QWordPtr};
-use ptr::{BytePointer, WordPointer, DWordPointer, QWordPointer};
+use ptr::{Mem, Byte, Word, DWord, QWord};
 use operand::Operand;
 use error::Error;
 use fixup::{HoleKind, Hole};
@@ -253,42 +251,25 @@ macro_rules! binary_arith_op {
             dst: Reg16, src: Reg16 => (MR) Prefix(0x66), Op($op.reg32), ModRm;
             dst: Reg32, src: Reg32 => (MR)               Op($op.reg32), ModRm;
             dst: Reg64, src: Reg64 => (MR) RexW,         Op($op.reg32), ModRm;
-        }}
 
-        dispatch_ptr! { $Op {
-            Reg8, @BytePointer => BytePtr;
-            Reg16, @WordPointer => WordPtr;
-            Reg32, @DWordPointer => DWordPtr;
-            Reg64, @QWordPointer => QWordPtr;
-            @BytePointer, u8 => BytePtr;
-            @WordPointer, u16 => WordPtr;
-            @DWordPointer, u32 => DWordPtr;
-            @QWordPointer, u32 => QWordPtr;
-            @BytePointer, Reg8 => BytePtr;
-            @WordPointer, Reg16 => WordPtr;
-            @DWordPointer, Reg32 => DWordPtr;
-            @QWordPointer, Reg64 => QWordPtr;
-        }}
+            <P: Mem> dst: Reg8,  src: Byte<P>  => (RM)               Op($op.mem8),  ModRm;
+            <P: Mem> dst: Reg16, src: Word<P>  => (RM) Prefix(0x66), Op($op.mem32), ModRm;
+            <P: Mem> dst: Reg32, src: DWord<P> => (RM)               Op($op.mem32), ModRm;
+            <P: Mem> dst: Reg64, src: QWord<P> => (RM) RexW,         Op($op.mem32), ModRm;
 
-        op_ptr! { $Op {
-            dst: Reg8,  src: BytePtr<..>  => (RM)               Op($op.mem8),  ModRm;
-            dst: Reg16, src: WordPtr<..>  => (RM) Prefix(0x66), Op($op.mem32), ModRm;
-            dst: Reg32, src: DWordPtr<..> => (RM)               Op($op.mem32), ModRm;
-            dst: Reg64, src: QWordPtr<..> => (RM) RexW,         Op($op.mem32), ModRm;
-
-            dst: BytePtr<..>, src: u8 =>
+            <P: Mem> dst: Byte<P>, src: u8 =>
                 (MI) Op($op.imm8), ModRmIndex($op.index), Imm8;
-            dst: WordPtr<..>, src: u16 =>
+            <P: Mem> dst: Word<P>, src: u16 =>
                 (MI) Prefix(0x66), Op($op.imm32), ModRmIndex($op.index), Imm16;
-            dst: DWordPtr<..>, src: u32 =>
+            <P: Mem> dst: DWord<P>, src: u32 =>
                 (MI) Op($op.imm32), ModRmIndex($op.index), Imm32;
-            dst: QWordPtr<..>, src: u32 =>
+            <P: Mem> dst: QWord<P>, src: u32 =>
                 (MI) RexW, Op($op.imm32), ModRmIndex($op.index), Imm32;
 
-            dst: BytePtr<..>,  src: Reg8  => (MR)               Op($op.reg8),  ModRm;
-            dst: WordPtr<..>,  src: Reg16 => (MR) Prefix(0x66), Op($op.reg32), ModRm;
-            dst: DWordPtr<..>, src: Reg32 => (MR)               Op($op.reg32), ModRm;
-            dst: QWordPtr<..>, src: Reg64 => (MR) RexW,         Op($op.reg32), ModRm;
+            <P: Mem> dst: Byte<P>,  src: Reg8  => (MR)               Op($op.reg8),  ModRm;
+            <P: Mem> dst: Word<P>,  src: Reg16 => (MR) Prefix(0x66), Op($op.reg32), ModRm;
+            <P: Mem> dst: DWord<P>, src: Reg32 => (MR)               Op($op.reg32), ModRm;
+            <P: Mem> dst: QWord<P>, src: Reg64 => (MR) RexW,         Op($op.reg32), ModRm;
         }}
         )*
     };
@@ -380,20 +361,11 @@ macro_rules! unary_arith_op {
                 r: Reg16 => (M) Prefix(0x66), Op(0xf7), ModRmIndex($index);
                 r: Reg32 => (M)               Op(0xf7), ModRmIndex($index);
                 r: Reg64 => (M) RexW,         Op(0xf7), ModRmIndex($index);
-            }}
 
-            dispatch_ptr! { $Op {
-                @BytePointer => BytePtr;
-                @WordPointer => WordPtr;
-                @DWordPointer => DWordPtr;
-                @QWordPointer => QWordPtr;
-            }}
-
-            op_ptr! { $Op {
-                p: BytePtr<..>  => (M)               Op(0xf6), ModRmIndex($index);
-                p: WordPtr<..>  => (M) Prefix(0x66), Op(0xf7), ModRmIndex($index);
-                p: DWordPtr<..> => (M)               Op(0xf7), ModRmIndex($index);
-                p: QWordPtr<..> => (M) RexW,         Op(0xf7), ModRmIndex($index);
+                <P: Mem> p: Byte<P>  => (M)               Op(0xf6), ModRmIndex($index);
+                <P: Mem> p: Word<P>  => (M) Prefix(0x66), Op(0xf7), ModRmIndex($index);
+                <P: Mem> p: DWord<P> => (M)               Op(0xf7), ModRmIndex($index);
+                <P: Mem> p: QWord<P> => (M) RexW,         Op(0xf7), ModRmIndex($index);
             }}
         )*
     };
@@ -430,20 +402,11 @@ op! { Inc {
     r: Reg16 => (M) Prefix(0x66), Op(0xff), ModRmIndex(0);
     r: Reg32 => (M)               Op(0xff), ModRmIndex(0);
     r: Reg64 => (M) RexW,         Op(0xff), ModRmIndex(0);
-}}
 
-dispatch_ptr! { Inc {
-    @BytePointer => BytePtr;
-    @WordPointer => WordPtr;
-    @DWordPointer => DWordPtr;
-    @QWordPointer => QWordPtr;
-}}
-
-op_ptr! { Inc {
-    p: BytePtr<..>  => (M)               Op(0xfe), ModRmIndex(0);
-    p: WordPtr<..>  => (M) Prefix(0x66), Op(0xff), ModRmIndex(0);
-    p: DWordPtr<..> => (M)               Op(0xff), ModRmIndex(0);
-    p: QWordPtr<..> => (M) RexW,         Op(0xff), ModRmIndex(0);
+    <P: Mem> p: Byte<P>  => (M)               Op(0xfe), ModRmIndex(0);
+    <P: Mem> p: Word<P>  => (M) Prefix(0x66), Op(0xff), ModRmIndex(0);
+    <P: Mem> p: DWord<P> => (M)               Op(0xff), ModRmIndex(0);
+    <P: Mem> p: QWord<P> => (M) RexW,         Op(0xff), ModRmIndex(0);
 }}
 
 
@@ -473,20 +436,11 @@ op! { Dec {
     r: Reg16 => (M) Prefix(0x66), Op(0xff), ModRmIndex(1);
     r: Reg32 => (M)               Op(0xff), ModRmIndex(1);
     r: Reg64 => (M) RexW,         Op(0xff), ModRmIndex(1);
-}}
 
-dispatch_ptr! { Dec {
-    @BytePointer => BytePtr;
-    @WordPointer => WordPtr;
-    @DWordPointer => DWordPtr;
-    @QWordPointer => QWordPtr;
-}}
-
-op_ptr! { Dec {
-    p: BytePtr<..>  => (M)               Op(0xfe), ModRmIndex(1);
-    p: WordPtr<..>  => (M) Prefix(0x66), Op(0xff), ModRmIndex(1);
-    p: DWordPtr<..> => (M)               Op(0xff), ModRmIndex(1);
-    p: QWordPtr<..> => (M) RexW,         Op(0xff), ModRmIndex(1);
+    <P: Mem> p: Byte<P>  => (M)               Op(0xfe), ModRmIndex(1);
+    <P: Mem> p: Word<P>  => (M) Prefix(0x66), Op(0xff), ModRmIndex(1);
+    <P: Mem> p: DWord<P> => (M)               Op(0xff), ModRmIndex(1);
+    <P: Mem> p: QWord<P> => (M) RexW,         Op(0xff), ModRmIndex(1);
 }}
 
 
@@ -545,29 +499,16 @@ op! { Test {
     r1: Reg16, r2: Reg16 => (MR) Prefix(0x66), Op(0x85), ModRm;
     r1: Reg32, r2: Reg32 => (MR)               Op(0x85), ModRm;
     r1: Reg64, r2: Reg64 => (MR) RexW,         Op(0x85), ModRm;
-}}
 
-dispatch_ptr! { Test {
-    @BytePointer, u8 => BytePtr;
-    @WordPointer, u16 => WordPtr;
-    @DWordPointer, u32 => DWordPtr;
-    @QWordPointer, u32 => QWordPtr;
-    @BytePointer, Reg8 => BytePtr;
-    @WordPointer, Reg16 => WordPtr;
-    @DWordPointer, Reg32 => DWordPtr;
-    @QWordPointer, Reg64 => QWordPtr;
-}}
+    <P: Mem> p: Byte<P>,  imm: u8  => (MI)               Op(0xf6), ModRmIndex(0), Imm8;
+    <P: Mem> p: Word<P>,  imm: u16 => (MI) Prefix(0x66), Op(0xf7), ModRmIndex(0), Imm16;
+    <P: Mem> p: DWord<P>, imm: u32 => (MI)               Op(0xf7), ModRmIndex(0), Imm32;
+    <P: Mem> p: QWord<P>, imm: u32 => (MI) RexW,         Op(0xf7), ModRmIndex(0), Imm32;
 
-op_ptr! { Test {
-    p: BytePtr<..>,  imm: u8  => (MI)               Op(0xf6), ModRmIndex(0), Imm8;
-    p: WordPtr<..>,  imm: u16 => (MI) Prefix(0x66), Op(0xf7), ModRmIndex(0), Imm16;
-    p: DWordPtr<..>, imm: u32 => (MI)               Op(0xf7), ModRmIndex(0), Imm32;
-    p: QWordPtr<..>, imm: u32 => (MI) RexW,         Op(0xf7), ModRmIndex(0), Imm32;
-
-    p: BytePtr<..>,  r: Reg8  => (MR)               Op(0x84), ModRm;
-    p: WordPtr<..>,  r: Reg16 => (MR) Prefix(0x66), Op(0x85), ModRm;
-    p: DWordPtr<..>, r: Reg32 => (MR)               Op(0x85), ModRm;
-    p: QWordPtr<..>, r: Reg64 => (MR) RexW,         Op(0x85), ModRm;
+    <P: Mem> p: Byte<P>,  r: Reg8  => (MR)               Op(0x84), ModRm;
+    <P: Mem> p: Word<P>,  r: Reg16 => (MR) Prefix(0x66), Op(0x85), ModRm;
+    <P: Mem> p: DWord<P>, r: Reg32 => (MR)               Op(0x85), ModRm;
+    <P: Mem> p: QWord<P>, r: Reg64 => (MR) RexW,         Op(0x85), ModRm;
 }}
 
 
@@ -616,38 +557,21 @@ op! { Mov {
     dst: Reg16, src: Reg16 => (MR) Prefix(0x66), Op(0x89), ModRm;
     dst: Reg32, src: Reg32 => (MR)               Op(0x89), ModRm;
     dst: Reg64, src: Reg64 => (MR) RexW,         Op(0x89), ModRm;
-}}
 
-dispatch_ptr! { Mov {
-    Reg8, @BytePointer => BytePtr;
-    Reg16, @WordPointer => WordPtr;
-    Reg32, @DWordPointer => DWordPtr;
-    Reg64, @QWordPointer => QWordPtr;
-    @BytePointer, u8 => BytePtr;
-    @WordPointer, u16 => WordPtr;
-    @DWordPointer, u32 => DWordPtr;
-    @QWordPointer, u32 => QWordPtr;
-    @BytePointer, Reg8 => BytePtr;
-    @WordPointer, Reg16 => WordPtr;
-    @DWordPointer, Reg32 => DWordPtr;
-    @QWordPointer, Reg64 => QWordPtr;
-}}
+    <P: Mem> r: Reg8,  p: Byte<P>  => (RM)               Op(0x8a), ModRm;
+    <P: Mem> r: Reg16, p: Word<P>  => (RM) Prefix(0x66), Op(0x8b), ModRm;
+    <P: Mem> r: Reg32, p: DWord<P> => (RM)               Op(0x8b), ModRm;
+    <P: Mem> r: Reg64, p: QWord<P> => (RM) RexW,         Op(0x8b), ModRm;
 
-op_ptr! { Mov {
-    r: Reg8,  p: BytePtr<..>  => (RM)               Op(0x8a), ModRm;
-    r: Reg16, p: WordPtr<..>  => (RM) Prefix(0x66), Op(0x8b), ModRm;
-    r: Reg32, p: DWordPtr<..> => (RM)               Op(0x8b), ModRm;
-    r: Reg64, p: QWordPtr<..> => (RM) RexW,         Op(0x8b), ModRm;
+    <P: Mem> p: Byte<P>,  imm: u8  => (MI)               Op(0xc6), ModRmIndex(0), Imm8;
+    <P: Mem> p: Word<P>,  imm: u16 => (MI) Prefix(0x66), Op(0xc7), ModRmIndex(0), Imm16;
+    <P: Mem> p: DWord<P>, imm: u32 => (MI)               Op(0xc7), ModRmIndex(0), Imm32;
+    <P: Mem> p: QWord<P>, imm: u32 => (MI) RexW,         Op(0xc7), ModRmIndex(0), Imm32;
 
-    p: BytePtr<..>,  imm: u8  => (MI)               Op(0xc6), ModRmIndex(0), Imm8;
-    p: WordPtr<..>,  imm: u16 => (MI) Prefix(0x66), Op(0xc7), ModRmIndex(0), Imm16;
-    p: DWordPtr<..>, imm: u32 => (MI)               Op(0xc7), ModRmIndex(0), Imm32;
-    p: QWordPtr<..>, imm: u32 => (MI) RexW,         Op(0xc7), ModRmIndex(0), Imm32;
-
-    p: BytePtr<..>,  r: Reg8  => (MR)               Op(0x88), ModRm;
-    p: WordPtr<..>,  r: Reg16 => (MR) Prefix(0x66), Op(0x89), ModRm;
-    p: DWordPtr<..>, r: Reg32 => (MR)               Op(0x89), ModRm;
-    p: QWordPtr<..>, r: Reg64 => (MR) RexW,         Op(0x89), ModRm;
+    <P: Mem> p: Byte<P>,  r: Reg8  => (MR)               Op(0x88), ModRm;
+    <P: Mem> p: Word<P>,  r: Reg16 => (MR) Prefix(0x66), Op(0x89), ModRm;
+    <P: Mem> p: DWord<P>, r: Reg32 => (MR)               Op(0x89), ModRm;
+    <P: Mem> p: QWord<P>, r: Reg64 => (MR) RexW,         Op(0x89), ModRm;
 }}
 
 
@@ -677,16 +601,9 @@ op! { Push {
     imm: u32 => (I)               Op(0x68), Imm32;
     reg: Reg16 => (O) Prefix(0x66), OpPlusReg(0x50);
     reg: Reg64 => (O)               OpPlusReg(0x50);
-}}
 
-dispatch_ptr! { Push {
-    @WordPointer => WordPtr;
-    @QWordPointer => QWordPtr;
-}}
-
-op_ptr! { Push {
-    p: WordPtr<..>  => (M) Prefix(0x66), Op(0xff), ModRmIndex(6);
-    p: QWordPtr<..> => (M)               Op(0xff), ModRmIndex(6);
+    <P: Mem> p: Word<P>  => (M) Prefix(0x66), Op(0xff), ModRmIndex(6);
+    <P: Mem> p: QWord<P> => (M)               Op(0xff), ModRmIndex(6);
 }}
 
 
@@ -710,16 +627,9 @@ impl<W> Pop<Operand> for W where W: EmitBytes {
 op! { Pop {
     reg: Reg16 => (O) Prefix(0x66), OpPlusReg(0x58);
     reg: Reg64 => (O)               OpPlusReg(0x58);
-}}
 
-dispatch_ptr! { Pop {
-    @WordPointer => WordPtr;
-    @QWordPointer => QWordPtr;
-}}
-
-op_ptr! { Pop {
-    p: WordPtr<..>  => (M) Prefix(0x66), Op(0x8f), ModRmIndex(0);
-    p: QWordPtr<..> => (M)               Op(0x8f), ModRmIndex(0);
+    <P: Mem> p: Word<P>  => (M) Prefix(0x66), Op(0x8f), ModRmIndex(0);
+    <P: Mem> p: QWord<P> => (M)               Op(0x8f), ModRmIndex(0);
 }}
 
 
@@ -817,20 +727,12 @@ macro_rules! cc_op {
             dst: Reg16, src: Reg16 => (RM) Prefix(0x66), Op(0x0f), Op(0x40 | cond::$cond.0), ModRm;
             dst: Reg32, src: Reg32 => (RM)               Op(0x0f), Op(0x40 | cond::$cond.0), ModRm;
             dst: Reg64, src: Reg64 => (RM) RexW,         Op(0x0f), Op(0x40 | cond::$cond.0), ModRm;
-        }}
 
-        dispatch_ptr! { $Cmov {
-            Reg16, @WordPointer => WordPtr;
-            Reg32, @DWordPointer => DWordPtr;
-            Reg64, @QWordPointer => QWordPtr;
-        }}
-
-        op_ptr! { $Cmov {
-            dst: Reg16, src: WordPtr<..> =>
+            <P: Mem> dst: Reg16, src: Word<P> =>
                 (RM) Prefix(0x66), Op(0x0f), Op(0x40 | cond::$cond.0), ModRm;
-            dst: Reg32, src: DWordPtr<..> =>
+            <P: Mem> dst: Reg32, src: DWord<P> =>
                 (RM) Op(0x0f), Op(0x40 | cond::$cond.0), ModRm;
-            dst: Reg64, src: QWordPtr<..> =>
+            <P: Mem> dst: Reg64, src: QWord<P> =>
                 (RM) RexW, Op(0x0f), Op(0x40 | cond::$cond.0), ModRm;
         }}
 
@@ -893,14 +795,7 @@ macro_rules! cc_op {
 
         op! { $Set {
             r: Reg8 => (M) Op(0x0f), Op(0x90 | cond::$cond.0), ModRmIndex(0);
-        }}
-
-        dispatch_ptr! { $Set {
-            @BytePointer => BytePtr;
-        }}
-
-        op_ptr! { $Set {
-            p: BytePtr<..> => (M) Op(0x0f), Op(0x90 | cond::$cond.0), ModRmIndex(0);
+            <P: Mem> p: Byte<P> => (M) Op(0x0f), Op(0x90 | cond::$cond.0), ModRmIndex(0);
         }}
         )*
     };
@@ -956,17 +851,10 @@ impl<W> Lea<Operand, Operand> for W where W: EmitBytes {
     }
 }
 
-dispatch_ptr! { Lea {
-    Reg16, @WordPointer => WordPtr;
-    Reg32, @DWordPointer => DWordPtr;
-    Reg64, @QWordPointer => QWordPtr;
-}}
-
-
-op_ptr! { Lea {
-    dst: Reg16, p: WordPtr<..>  => (RM) Prefix(0x66), Op(0x8d), ModRm;
-    dst: Reg32, p: DWordPtr<..> => (RM)               Op(0x8d), ModRm;
-    dst: Reg64, p: QWordPtr<..> => (RM) RexW,         Op(0x8d), ModRm;
+op! { Lea {
+    <P: Mem> dst: Reg16, p: Word<P>  => (RM) Prefix(0x66), Op(0x8d), ModRm;
+    <P: Mem> dst: Reg32, p: DWord<P> => (RM)               Op(0x8d), ModRm;
+    <P: Mem> dst: Reg64, p: QWord<P> => (RM) RexW,         Op(0x8d), ModRm;
 }}
 
 
@@ -999,22 +887,12 @@ op! { Movzx {
     dst: Reg64, src: Reg8 => (RM) RexW,         Op(0x0f), Op(0xb6), ModRm;
     dst: Reg32, src: Reg16 => (RM)       Op(0x0f), Op(0xb7), ModRm;
     dst: Reg64, src: Reg16 => (RM) RexW, Op(0x0f), Op(0xb7), ModRm;
-}}
 
-dispatch_ptr! { Movzx {
-    Reg16, @BytePointer => BytePtr;
-    Reg32, @BytePointer => BytePtr;
-    Reg64, @BytePointer => BytePtr;
-    Reg32, @WordPointer => WordPtr;
-    Reg64, @WordPointer => WordPtr;
-}}
-
-op_ptr! { Movzx {
-    dst: Reg16, src: BytePtr<..> => (RM) Prefix(0x66), Op(0x0f), Op(0xb6), ModRm;
-    dst: Reg32, src: BytePtr<..> => (RM)               Op(0x0f), Op(0xb6), ModRm;
-    dst: Reg64, src: BytePtr<..> => (RM) RexW,         Op(0x0f), Op(0xb6), ModRm;
-    dst: Reg32, src: WordPtr<..> => (RM)       Op(0x0f), Op(0xb7), ModRm;
-    dst: Reg64, src: WordPtr<..> => (RM) RexW, Op(0x0f), Op(0xb7), ModRm;
+    <P: Mem> dst: Reg16, src: Byte<P> => (RM) Prefix(0x66), Op(0x0f), Op(0xb6), ModRm;
+    <P: Mem> dst: Reg32, src: Byte<P> => (RM)               Op(0x0f), Op(0xb6), ModRm;
+    <P: Mem> dst: Reg64, src: Byte<P> => (RM) RexW,         Op(0x0f), Op(0xb6), ModRm;
+    <P: Mem> dst: Reg32, src: Word<P> => (RM)       Op(0x0f), Op(0xb7), ModRm;
+    <P: Mem> dst: Reg64, src: Word<P> => (RM) RexW, Op(0x0f), Op(0xb7), ModRm;
 }}
 
 
@@ -1047,22 +925,12 @@ op! { Movsx {
     dst: Reg64, src: Reg8 => (RM) RexW,         Op(0x0f), Op(0xbe), ModRm;
     dst: Reg32, src: Reg16 => (RM)       Op(0x0f), Op(0xbf), ModRm;
     dst: Reg64, src: Reg16 => (RM) RexW, Op(0x0f), Op(0xbf), ModRm;
-}}
 
-dispatch_ptr! { Movsx {
-    Reg16, @BytePointer => BytePtr;
-    Reg32, @BytePointer => BytePtr;
-    Reg64, @BytePointer => BytePtr;
-    Reg32, @WordPointer => WordPtr;
-    Reg64, @WordPointer => WordPtr;
-}}
-
-op_ptr! { Movsx {
-    dst: Reg16, src: BytePtr<..> => (RM) Prefix(0x66), Op(0x0f), Op(0xbe), ModRm;
-    dst: Reg32, src: BytePtr<..> => (RM)               Op(0x0f), Op(0xbe), ModRm;
-    dst: Reg64, src: BytePtr<..> => (RM) RexW,         Op(0x0f), Op(0xbe), ModRm;
-    dst: Reg32, src: WordPtr<..> => (RM)       Op(0x0f), Op(0xbf), ModRm;
-    dst: Reg64, src: WordPtr<..> => (RM) RexW, Op(0x0f), Op(0xbf), ModRm;
+    <P: Mem> dst: Reg16, src: Byte<P> => (RM) Prefix(0x66), Op(0x0f), Op(0xbe), ModRm;
+    <P: Mem> dst: Reg32, src: Byte<P> => (RM)               Op(0x0f), Op(0xbe), ModRm;
+    <P: Mem> dst: Reg64, src: Byte<P> => (RM) RexW,         Op(0x0f), Op(0xbe), ModRm;
+    <P: Mem> dst: Reg32, src: Word<P> => (RM)       Op(0x0f), Op(0xbf), ModRm;
+    <P: Mem> dst: Reg64, src: Word<P> => (RM) RexW, Op(0x0f), Op(0xbf), ModRm;
 }}
 
 
@@ -1126,28 +994,14 @@ op! { Xchg {
         } else {
             (MR) RexW, Op(0x87), ModRm
         };
-}}
 
-dispatch_ptr! { Xchg {
-    Reg8, @BytePointer => BytePtr;
-    Reg16, @WordPointer => WordPtr;
-    Reg32, @DWordPointer => DWordPtr;
-    Reg64, @QWordPointer => QWordPtr;
+    <P: Mem> r: Reg8,  p: Byte<P>  => (RM)               Op(0x86), ModRm;
+    <P: Mem> r: Reg16, p: Word<P>  => (RM) Prefix(0x66), Op(0x87), ModRm;
+    <P: Mem> r: Reg32, p: DWord<P> => (RM)               Op(0x87), ModRm;
+    <P: Mem> r: Reg64, p: QWord<P> => (RM) RexW,         Op(0x87), ModRm;
 
-    @BytePointer, Reg8 => BytePtr;
-    @WordPointer, Reg16 => WordPtr;
-    @DWordPointer, Reg32 => DWordPtr;
-    @QWordPointer, Reg64 => QWordPtr;
-}}
-
-op_ptr! { Xchg {
-    r: Reg8,  p: BytePtr<..>  => (RM)               Op(0x86), ModRm;
-    r: Reg16, p: WordPtr<..>  => (RM) Prefix(0x66), Op(0x87), ModRm;
-    r: Reg32, p: DWordPtr<..> => (RM)               Op(0x87), ModRm;
-    r: Reg64, p: QWordPtr<..> => (RM) RexW,         Op(0x87), ModRm;
-
-    p: BytePtr<..>,  r: Reg8  => (MR)               Op(0x86), ModRm;
-    p: WordPtr<..>,  r: Reg16 => (MR) Prefix(0x66), Op(0x87), ModRm;
-    p: DWordPtr<..>, r: Reg32 => (MR)               Op(0x87), ModRm;
-    p: QWordPtr<..>, r: Reg64 => (MR) RexW,         Op(0x87), ModRm;
+    <P: Mem> p: Byte<P>,  r: Reg8  => (MR)               Op(0x86), ModRm;
+    <P: Mem> p: Word<P>, r: Reg16  => (MR) Prefix(0x66), Op(0x87), ModRm;
+    <P: Mem> p: DWord<P>, r: Reg32 => (MR)               Op(0x87), ModRm;
+    <P: Mem> p: QWord<P>, r: Reg64 => (MR) RexW,         Op(0x87), ModRm;
 }}

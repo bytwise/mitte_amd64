@@ -3,37 +3,73 @@ use std::ops;
 use reg::Reg64;
 
 
-pub fn byte_ptr<M, B, X, D>(m: M) -> BytePtr<B, X, D> where M: Into<BytePtr<B, X, D>> {
-    m.into()
+mod private {
+    use common::{Rex, Args};
+
+    pub trait MemSealed: Clone + Rex + Args {}
+
+    impl<M> MemSealed for M where M: Clone + Rex + Args {}
 }
 
-pub fn word_ptr<M, B, X, D>(m: M) -> WordPtr<B, X, D> where M: Into<WordPtr<B, X, D>> {
-    m.into()
+pub trait Mem: private::MemSealed {}
+
+impl Mem for Pointer {}
+impl Mem for Ptr<(), (), i8> { }
+impl Mem for Ptr<(), (), i32> {}
+impl Mem for Ptr<Reg64, (), ()> {}
+impl Mem for Ptr<Reg64, (), i8> {}
+impl Mem for Ptr<Reg64, (), i32> {}
+impl Mem for Ptr<(), Scaled<Reg64>, ()> {}
+impl Mem for Ptr<(), Scaled<Reg64>, i8> {}
+impl Mem for Ptr<(), Scaled<Reg64>, i32> {}
+impl Mem for Ptr<Reg64, Scaled<Reg64>, ()> {}
+impl Mem for Ptr<Reg64, Scaled<Reg64>, i8> {}
+impl Mem for Ptr<Reg64, Scaled<Reg64>, i32> {}
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Byte<M>(pub M);
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct Word<M>(pub M);
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct DWord<M>(pub M);
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+pub struct QWord<M>(pub M);
+
+
+pub fn byte_ptr<M, B, X, D>(m: M) -> Byte<Ptr<B, X, D>> where M: Into<Ptr<B, X, D>> {
+    Byte(m.into())
 }
 
-pub fn dword_ptr<M, B, X, D>(m: M) -> DWordPtr<B, X, D> where M: Into<DWordPtr<B, X, D>> {
-    m.into()
+pub fn word_ptr<M, B, X, D>(m: M) -> Word<Ptr<B, X, D>> where M: Into<Ptr<B, X, D>> {
+    Word(m.into())
 }
 
-pub fn qword_ptr<M, B, X, D>(m: M) -> QWordPtr<B, X, D> where M: Into<QWordPtr<B, X, D>> {
-    m.into()
+pub fn dword_ptr<M, B, X, D>(m: M) -> DWord<Ptr<B, X, D>> where M: Into<Ptr<B, X, D>> {
+    DWord(m.into())
+}
+
+pub fn qword_ptr<M, B, X, D>(m: M) -> QWord<Ptr<B, X, D>> where M: Into<Ptr<B, X, D>> {
+    QWord(m.into())
 }
 
 
-pub fn byte_pointer<M>(m: M) -> BytePointer where M: Into<BytePointer> {
-    m.into()
+pub fn byte_pointer<M>(m: M) -> Byte<Pointer> where M: Into<Pointer> {
+    Byte(m.into())
 }
 
-pub fn word_pointer<M>(m: M) -> WordPointer where M: Into<WordPointer> {
-    m.into()
+pub fn word_pointer<M>(m: M) -> Word<Pointer> where M: Into<Pointer> {
+    Word(m.into())
 }
 
-pub fn dword_pointer<M>(m: M) -> DWordPointer where M: Into<DWordPointer> {
-    m.into()
+pub fn dword_pointer<M>(m: M) -> DWord<Pointer> where M: Into<Pointer> {
+    DWord(m.into())
 }
 
-pub fn qword_pointer<M>(m: M) -> QWordPointer where M: Into<QWordPointer> {
-    m.into()
+pub fn qword_pointer<M>(m: M) -> QWord<Pointer> where M: Into<Pointer> {
+    QWord(m.into())
 }
 
 
@@ -415,101 +451,5 @@ impl From<Ptr<Reg64, Scaled<Reg64>, i32>> for Pointer {
     #[inline]
     fn from(p: Ptr<Reg64, Scaled<Reg64>, i32>) -> Pointer {
         Pointer::BaseIndexDisp32(p.base, p.index, p.disp)
-    }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct BytePtr<B, X, D> {
-    pub ptr: Ptr<B, X, D>,
-}
-
-impl<B, X, D, P> From<P> for BytePtr<B, X, D> where P: Into<Ptr<B, X, D>> {
-    fn from(p: P) -> BytePtr<B, X, D> {
-        BytePtr { ptr: p.into() }
-    }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct WordPtr<B, X, D> {
-    pub ptr: Ptr<B, X, D>,
-}
-
-impl<B, X, D, P> From<P> for WordPtr<B, X, D> where P: Into<Ptr<B, X, D>> {
-    fn from(p: P) -> WordPtr<B, X, D> {
-        WordPtr { ptr: p.into() }
-    }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct DWordPtr<B, X, D> {
-    pub ptr: Ptr<B, X, D>,
-}
-
-impl<B, X, D, P> From<P> for DWordPtr<B, X, D> where P: Into<Ptr<B, X, D>> {
-    fn from(p: P) -> DWordPtr<B, X, D> {
-        DWordPtr { ptr: p.into() }
-    }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct QWordPtr<B, X, D> {
-    pub ptr: Ptr<B, X, D>,
-}
-
-impl<B, X, D, P> From<P> for QWordPtr<B, X, D> where P: Into<Ptr<B, X, D>> {
-    fn from(p: P) -> QWordPtr<B, X, D> {
-        QWordPtr { ptr: p.into() }
-    }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct BytePointer {
-    pub ptr: Pointer,
-}
-
-impl<P> From<P> for BytePointer where P: Into<Pointer> {
-    fn from(p: P) -> BytePointer {
-        BytePointer { ptr: p.into() }
-    }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct WordPointer {
-    pub ptr: Pointer,
-}
-
-impl<P> From<P> for WordPointer where P: Into<Pointer> {
-    fn from(p: P) -> WordPointer {
-        WordPointer { ptr: p.into() }
-    }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct DWordPointer {
-    pub ptr: Pointer,
-}
-
-impl<P> From<P> for DWordPointer where P: Into<Pointer> {
-    fn from(p: P) -> DWordPointer {
-        DWordPointer { ptr: p.into() }
-    }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-pub struct QWordPointer {
-    pub ptr: Pointer,
-}
-
-impl<P> From<P> for QWordPointer where P: Into<Pointer> {
-    fn from(p: P) -> QWordPointer {
-        QWordPointer { ptr: p.into() }
     }
 }

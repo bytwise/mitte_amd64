@@ -1,5 +1,6 @@
 use reg::{Reg8, Reg16, Reg32, Reg64};
-use ptr::{BytePointer, WordPointer, DWordPointer, QWordPointer};
+use ptr::{Byte, Word, DWord, QWord};
+use ptr::Pointer;
 
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -16,25 +17,25 @@ pub enum Operand {
     Offset16(i16),
     Offset32(i32),
     Offset64(i64),
-    BytePointer(BytePointer),
-    WordPointer(WordPointer),
-    DWordPointer(DWordPointer),
-    QWordPointer(QWordPointer),
+    BytePointer(Byte<Pointer>),
+    WordPointer(Word<Pointer>),
+    DWordPointer(DWord<Pointer>),
+    QWordPointer(QWord<Pointer>),
 }
 
 
-pub fn byte_pointer<M>(m: M) -> Operand where M: Into<BytePointer> {
-    Operand::BytePointer(m.into())
+pub fn byte_pointer<M>(m: M) -> Operand where M: Into<Pointer> {
+    Operand::BytePointer(Byte(m.into()))
 }
 
-pub fn word_pointer<M>(m: M) -> Operand where M: Into<WordPointer> {
-    Operand::WordPointer(m.into())
+pub fn word_pointer<M>(m: M) -> Operand where M: Into<Pointer> {
+    Operand::WordPointer(Word(m.into()))
 }
 
-pub fn dword_pointer<M>(m: M) -> Operand where M: Into<DWordPointer> {
-    Operand::DWordPointer(m.into())
+pub fn dword_pointer<M>(m: M) -> Operand where M: Into<Pointer> {
+    Operand::DWordPointer(DWord(m.into()))
 }
 
-pub fn qword_pointer<M>(m: M) -> Operand where M: Into<QWordPointer> {
-    Operand::QWordPointer(m.into())
+pub fn qword_pointer<M>(m: M) -> Operand where M: Into<Pointer> {
+    Operand::QWordPointer(QWord(m.into()))
 }

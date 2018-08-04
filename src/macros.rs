@@ -82,11 +82,14 @@ macro_rules! op {
     (
         $Trait:ident
         {
+            $(<$($A:ident : $bound:ident),*>)*
             $($arg:ident : $T:ty),* => ($enc:ty) $($e:expr),*;
             $($rest:tt)*
         }
     ) => {
-        impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
+        impl<W $($(, $A)*)*> $Trait<$($T),*> for W
+            where W: ::EmitBytes $($(, $A : $bound)*)*
+        {
             fn write(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
@@ -145,7 +148,7 @@ macro_rules! op_ptr {
 
     (
         $Trait:ident {
-            $arg:ident : $T:ident, $ptr:ident : $Ptr:ident <..> => ($enc:ty) $($e:expr),*;
+            $arg:ident : $T:ident, $ptr:ident : $Ptr:ident <..> => ($enc:ident) $($e:expr),*;
             $($rest:tt)*
         }
     ) => {
