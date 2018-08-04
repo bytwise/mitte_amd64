@@ -15,6 +15,7 @@ macro_rules! op {
             fn write(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
+                #![allow(unused_parens)]
                 assert_eq!($assert_e1, $assert_e2);
                 ::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
             }
@@ -37,6 +38,7 @@ macro_rules! op {
             fn write(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
+                #![allow(unused_parens)]
                 if $cond {
                     ::encode::Encode::<$enc1, _>::encode(self, ( $($arg),* ), ( $($e1),* ))
                 } else {
@@ -64,6 +66,7 @@ macro_rules! op {
             fn write(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
+                #![allow(unused_parens)]
                 if $cond1 {
                     ::encode::Encode::<$enc1, _>::encode(self, ( $($arg),* ), ( $($e1),* ))
                 } else if $cond2 {
@@ -87,6 +90,7 @@ macro_rules! op {
             fn write(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
+                #![allow(unused_parens)]
                 ::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
             }
         }
@@ -105,6 +109,7 @@ macro_rules! op {
             fn write(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<$R, ::error::Error<W::Error>>
             {
+                #![allow(unused_parens)]
                 ::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
             }
         }
