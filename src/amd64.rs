@@ -183,36 +183,36 @@ macro_rules! binary_arith_op {
     ($(($Op:ident, $op:ident)),*) => {
         $(
         pub trait $Op<D, S>: EmitBytes {
-            fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
+            fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
         }
 
         impl<W> $Op<Operand, Operand> for W where W: EmitBytes {
-            fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
+            fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match (dst, src) {
-                    (Reg8(d), Imm8(s)) => $Op::write(self, d, s),
-                    (Reg16(d), Imm8(s)) => $Op::write(self, d, s),
-                    (Reg32(d), Imm8(s)) => $Op::write(self, d, s),
-                    (Reg64(d), Imm8(s)) => $Op::write(self, d, s),
-                    (Reg16(d), Imm16(s)) => $Op::write(self, d, s),
-                    (Reg32(d), Imm32(s)) => $Op::write(self, d, s),
-                    (Reg64(d), Imm32(s)) => $Op::write(self, d, s),
-                    (Reg8(d), Reg8(s)) => $Op::write(self, d, s),
-                    (Reg16(d), Reg16(s)) => $Op::write(self, d, s),
-                    (Reg32(d), Reg32(s)) => $Op::write(self, d, s),
-                    (Reg64(d), Reg64(s)) => $Op::write(self, d, s),
-                    (Reg8(d), BytePointer(s)) => $Op::write(self, d, s),
-                    (Reg16(d), WordPointer(s)) => $Op::write(self, d, s),
-                    (Reg32(d), DWordPointer(s)) => $Op::write(self, d, s),
-                    (Reg64(d), QWordPointer(s)) => $Op::write(self, d, s),
-                    (BytePointer(d), Imm8(s)) => $Op::write(self, d, s),
-                    (WordPointer(d), Imm16(s)) => $Op::write(self, d, s),
-                    (DWordPointer(d), Imm32(s)) => $Op::write(self, d, s),
-                    (QWordPointer(d), Imm32(s)) => $Op::write(self, d, s),
-                    (BytePointer(d), Reg8(s)) => $Op::write(self, d, s),
-                    (WordPointer(d), Reg16(s)) => $Op::write(self, d, s),
-                    (DWordPointer(d), Reg32(s)) => $Op::write(self, d, s),
-                    (QWordPointer(d), Reg64(s)) => $Op::write(self, d, s),
+                    (Reg8(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (Reg16(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (Reg32(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (Reg64(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (Reg16(d), Imm16(s)) => $Op::emit(self, d, s),
+                    (Reg32(d), Imm32(s)) => $Op::emit(self, d, s),
+                    (Reg64(d), Imm32(s)) => $Op::emit(self, d, s),
+                    (Reg8(d), Reg8(s)) => $Op::emit(self, d, s),
+                    (Reg16(d), Reg16(s)) => $Op::emit(self, d, s),
+                    (Reg32(d), Reg32(s)) => $Op::emit(self, d, s),
+                    (Reg64(d), Reg64(s)) => $Op::emit(self, d, s),
+                    (Reg8(d), BytePointer(s)) => $Op::emit(self, d, s),
+                    (Reg16(d), WordPointer(s)) => $Op::emit(self, d, s),
+                    (Reg32(d), DWordPointer(s)) => $Op::emit(self, d, s),
+                    (Reg64(d), QWordPointer(s)) => $Op::emit(self, d, s),
+                    (BytePointer(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (WordPointer(d), Imm16(s)) => $Op::emit(self, d, s),
+                    (DWordPointer(d), Imm32(s)) => $Op::emit(self, d, s),
+                    (QWordPointer(d), Imm32(s)) => $Op::emit(self, d, s),
+                    (BytePointer(d), Reg8(s)) => $Op::emit(self, d, s),
+                    (WordPointer(d), Reg16(s)) => $Op::emit(self, d, s),
+                    (DWordPointer(d), Reg32(s)) => $Op::emit(self, d, s),
+                    (QWordPointer(d), Reg64(s)) => $Op::emit(self, d, s),
                     _ => Err(Error::InvalidOperands),
                 }
             }
@@ -289,29 +289,29 @@ macro_rules! shift_op {
     ($(($Op:ident, $op:ident)),*) => {
         $(
         pub trait $Op<D, S>: EmitBytes {
-            fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
+            fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
         }
 
         impl<W> $Op<Operand, Operand> for W where W: EmitBytes {
-            fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
+            fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match (dst, src) {
-                    (Reg8(d), Imm8(s)) => $Op::write(self, d, s),
-                    (Reg16(d), Imm8(s)) => $Op::write(self, d, s),
-                    (Reg32(d), Imm8(s)) => $Op::write(self, d, s),
-                    (Reg64(d), Imm8(s)) => $Op::write(self, d, s),
-                    (Reg8(d), Reg8(s)) => $Op::write(self, d, s),
-                    (Reg16(d), Reg8(s)) => $Op::write(self, d, s),
-                    (Reg32(d), Reg8(s)) => $Op::write(self, d, s),
-                    (Reg64(d), Reg8(s)) => $Op::write(self, d, s),
-                    (BytePointer(d), Imm8(s)) => $Op::write(self, d, s),
-                    (WordPointer(d), Imm8(s)) => $Op::write(self, d, s),
-                    (DWordPointer(d), Imm8(s)) => $Op::write(self, d, s),
-                    (QWordPointer(d), Imm8(s)) => $Op::write(self, d, s),
-                    (BytePointer(d), Reg8(s)) => $Op::write(self, d, s),
-                    (WordPointer(d), Reg8(s)) => $Op::write(self, d, s),
-                    (DWordPointer(d), Reg8(s)) => $Op::write(self, d, s),
-                    (QWordPointer(d), Reg8(s)) => $Op::write(self, d, s),
+                    (Reg8(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (Reg16(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (Reg32(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (Reg64(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (Reg8(d), Reg8(s)) => $Op::emit(self, d, s),
+                    (Reg16(d), Reg8(s)) => $Op::emit(self, d, s),
+                    (Reg32(d), Reg8(s)) => $Op::emit(self, d, s),
+                    (Reg64(d), Reg8(s)) => $Op::emit(self, d, s),
+                    (BytePointer(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (WordPointer(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (DWordPointer(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (QWordPointer(d), Imm8(s)) => $Op::emit(self, d, s),
+                    (BytePointer(d), Reg8(s)) => $Op::emit(self, d, s),
+                    (WordPointer(d), Reg8(s)) => $Op::emit(self, d, s),
+                    (DWordPointer(d), Reg8(s)) => $Op::emit(self, d, s),
+                    (QWordPointer(d), Reg8(s)) => $Op::emit(self, d, s),
                     _ => Err(Error::InvalidOperands),
                 }
             }
@@ -405,21 +405,21 @@ macro_rules! unary_arith_op {
     ($( ($Op:ident, $index:expr) ),*) => {
         $(
             pub trait $Op<T>: EmitBytes {
-                fn write(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
+                fn emit(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
             }
 
             impl<W> $Op<Operand> for W where W: EmitBytes {
-                fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
+                fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
                     use operand::Operand::*;
                     match arg {
-                        Reg8(a) => $Op::write(self, a),
-                        Reg16(a) => $Op::write(self, a),
-                        Reg32(a) => $Op::write(self, a),
-                        Reg64(a) => $Op::write(self, a),
-                        BytePointer(a) => $Op::write(self, a),
-                        WordPointer(a) => $Op::write(self, a),
-                        DWordPointer(a) => $Op::write(self, a),
-                        QWordPointer(a) => $Op::write(self, a),
+                        Reg8(a) => $Op::emit(self, a),
+                        Reg16(a) => $Op::emit(self, a),
+                        Reg32(a) => $Op::emit(self, a),
+                        Reg64(a) => $Op::emit(self, a),
+                        BytePointer(a) => $Op::emit(self, a),
+                        WordPointer(a) => $Op::emit(self, a),
+                        DWordPointer(a) => $Op::emit(self, a),
+                        QWordPointer(a) => $Op::emit(self, a),
                         _ => Err(Error::InvalidOperands),
                     }
                 }
@@ -446,21 +446,21 @@ unary_arith_op! {
 
 
 pub trait Inc<T>: EmitBytes {
-    fn write(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Inc<Operand> for W where W: EmitBytes {
-    fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
-            Reg8(a) => Inc::write(self, a),
-            Reg16(a) => Inc::write(self, a),
-            Reg32(a) => Inc::write(self, a),
-            Reg64(a) => Inc::write(self, a),
-            BytePointer(a) => Inc::write(self, a),
-            WordPointer(a) => Inc::write(self, a),
-            DWordPointer(a) => Inc::write(self, a),
-            QWordPointer(a) => Inc::write(self, a),
+            Reg8(a) => Inc::emit(self, a),
+            Reg16(a) => Inc::emit(self, a),
+            Reg32(a) => Inc::emit(self, a),
+            Reg64(a) => Inc::emit(self, a),
+            BytePointer(a) => Inc::emit(self, a),
+            WordPointer(a) => Inc::emit(self, a),
+            DWordPointer(a) => Inc::emit(self, a),
+            QWordPointer(a) => Inc::emit(self, a),
             _ => Err(Error::InvalidOperands),
         }
     }
@@ -480,21 +480,21 @@ op! { Inc {
 
 
 pub trait Dec<T>: EmitBytes {
-    fn write(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Dec<Operand> for W where W: EmitBytes {
-    fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
-            Reg8(a) => Dec::write(self, a),
-            Reg16(a) => Dec::write(self, a),
-            Reg32(a) => Dec::write(self, a),
-            Reg64(a) => Dec::write(self, a),
-            BytePointer(a) => Dec::write(self, a),
-            WordPointer(a) => Dec::write(self, a),
-            DWordPointer(a) => Dec::write(self, a),
-            QWordPointer(a) => Dec::write(self, a),
+            Reg8(a) => Dec::emit(self, a),
+            Reg16(a) => Dec::emit(self, a),
+            Reg32(a) => Dec::emit(self, a),
+            Reg64(a) => Dec::emit(self, a),
+            BytePointer(a) => Dec::emit(self, a),
+            WordPointer(a) => Dec::emit(self, a),
+            DWordPointer(a) => Dec::emit(self, a),
+            QWordPointer(a) => Dec::emit(self, a),
             _ => Err(Error::InvalidOperands),
         }
     }
@@ -514,29 +514,29 @@ op! { Dec {
 
 
 pub trait Test<D, S>: EmitBytes {
-    fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Test<Operand, Operand> for W where W: EmitBytes {
-    fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
-            (Reg8(d), Imm8(s)) => Test::write(self, d, s),
-            (Reg16(d), Imm16(s)) => Test::write(self, d, s),
-            (Reg32(d), Imm32(s)) => Test::write(self, d, s),
-            (Reg64(d), Imm32(s)) => Test::write(self, d, s),
-            (Reg8(d), Reg8(s)) => Test::write(self, d, s),
-            (Reg16(d), Reg16(s)) => Test::write(self, d, s),
-            (Reg32(d), Reg32(s)) => Test::write(self, d, s),
-            (Reg64(d), Reg64(s)) => Test::write(self, d, s),
-            (BytePointer(d), Imm8(s)) => Test::write(self, d, s),
-            (WordPointer(d), Imm16(s)) => Test::write(self, d, s),
-            (DWordPointer(d), Imm32(s)) => Test::write(self, d, s),
-            (QWordPointer(d), Imm32(s)) => Test::write(self, d, s),
-            (BytePointer(d), Reg8(s)) => Test::write(self, d, s),
-            (WordPointer(d), Reg16(s)) => Test::write(self, d, s),
-            (DWordPointer(d), Reg32(s)) => Test::write(self, d, s),
-            (QWordPointer(d), Reg64(s)) => Test::write(self, d, s),
+            (Reg8(d), Imm8(s)) => Test::emit(self, d, s),
+            (Reg16(d), Imm16(s)) => Test::emit(self, d, s),
+            (Reg32(d), Imm32(s)) => Test::emit(self, d, s),
+            (Reg64(d), Imm32(s)) => Test::emit(self, d, s),
+            (Reg8(d), Reg8(s)) => Test::emit(self, d, s),
+            (Reg16(d), Reg16(s)) => Test::emit(self, d, s),
+            (Reg32(d), Reg32(s)) => Test::emit(self, d, s),
+            (Reg64(d), Reg64(s)) => Test::emit(self, d, s),
+            (BytePointer(d), Imm8(s)) => Test::emit(self, d, s),
+            (WordPointer(d), Imm16(s)) => Test::emit(self, d, s),
+            (DWordPointer(d), Imm32(s)) => Test::emit(self, d, s),
+            (QWordPointer(d), Imm32(s)) => Test::emit(self, d, s),
+            (BytePointer(d), Reg8(s)) => Test::emit(self, d, s),
+            (WordPointer(d), Reg16(s)) => Test::emit(self, d, s),
+            (DWordPointer(d), Reg32(s)) => Test::emit(self, d, s),
+            (QWordPointer(d), Reg64(s)) => Test::emit(self, d, s),
             _ => Err(Error::InvalidOperands),
         }
     }
@@ -586,34 +586,34 @@ op! { Test {
 
 
 pub trait Mov<D, S>: EmitBytes {
-    fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Mov<Operand, Operand> for W where W: EmitBytes {
-    fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
-            (Reg8(d), Imm8(s)) => Mov::write(self, d, s),
-            (Reg16(d), Imm16(s)) => Mov::write(self, d, s),
-            (Reg32(d), Imm32(s)) => Mov::write(self, d, s),
-            (Reg64(d), Imm64(s)) => Mov::write(self, d, s),
-            (Reg64(d), Imm32(s)) => Mov::write(self, d, s),
-            (Reg8(d), Reg8(s)) => Mov::write(self, d, s),
-            (Reg16(d), Reg16(s)) => Mov::write(self, d, s),
-            (Reg32(d), Reg32(s)) => Mov::write(self, d, s),
-            (Reg64(d), Reg64(s)) => Mov::write(self, d, s),
-            (Reg8(d), BytePointer(s)) => Mov::write(self, d, s),
-            (Reg16(d), WordPointer(s)) => Mov::write(self, d, s),
-            (Reg32(d), DWordPointer(s)) => Mov::write(self, d, s),
-            (Reg64(d), QWordPointer(s)) => Mov::write(self, d, s),
-            (BytePointer(d), Imm8(s)) => Mov::write(self, d, s),
-            (WordPointer(d), Imm16(s)) => Mov::write(self, d, s),
-            (DWordPointer(d), Imm32(s)) => Mov::write(self, d, s),
-            (QWordPointer(d), Imm32(s)) => Mov::write(self, d, s),
-            (BytePointer(d), Reg8(s)) => Mov::write(self, d, s),
-            (WordPointer(d), Reg16(s)) => Mov::write(self, d, s),
-            (DWordPointer(d), Reg32(s)) => Mov::write(self, d, s),
-            (QWordPointer(d), Reg64(s)) => Mov::write(self, d, s),
+            (Reg8(d), Imm8(s)) => Mov::emit(self, d, s),
+            (Reg16(d), Imm16(s)) => Mov::emit(self, d, s),
+            (Reg32(d), Imm32(s)) => Mov::emit(self, d, s),
+            (Reg64(d), Imm64(s)) => Mov::emit(self, d, s),
+            (Reg64(d), Imm32(s)) => Mov::emit(self, d, s),
+            (Reg8(d), Reg8(s)) => Mov::emit(self, d, s),
+            (Reg16(d), Reg16(s)) => Mov::emit(self, d, s),
+            (Reg32(d), Reg32(s)) => Mov::emit(self, d, s),
+            (Reg64(d), Reg64(s)) => Mov::emit(self, d, s),
+            (Reg8(d), BytePointer(s)) => Mov::emit(self, d, s),
+            (Reg16(d), WordPointer(s)) => Mov::emit(self, d, s),
+            (Reg32(d), DWordPointer(s)) => Mov::emit(self, d, s),
+            (Reg64(d), QWordPointer(s)) => Mov::emit(self, d, s),
+            (BytePointer(d), Imm8(s)) => Mov::emit(self, d, s),
+            (WordPointer(d), Imm16(s)) => Mov::emit(self, d, s),
+            (DWordPointer(d), Imm32(s)) => Mov::emit(self, d, s),
+            (QWordPointer(d), Imm32(s)) => Mov::emit(self, d, s),
+            (BytePointer(d), Reg8(s)) => Mov::emit(self, d, s),
+            (WordPointer(d), Reg16(s)) => Mov::emit(self, d, s),
+            (DWordPointer(d), Reg32(s)) => Mov::emit(self, d, s),
+            (QWordPointer(d), Reg64(s)) => Mov::emit(self, d, s),
             _ => Err(Error::InvalidOperands),
         }
     }
@@ -649,20 +649,20 @@ op! { Mov {
 
 
 pub trait Push<S>: EmitBytes {
-    fn write(&mut self, src: S) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Push<Operand> for W where W: EmitBytes {
-    fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
-            Imm8(a) => Push::write(self, a),
-            Imm16(a) => Push::write(self, a),
-            Imm32(a) => Push::write(self, a),
-            Reg16(a) => Push::write(self, a),
-            Reg64(a) => Push::write(self, a),
-            WordPointer(a) => Push::write(self, a),
-            QWordPointer(a) => Push::write(self, a),
+            Imm8(a) => Push::emit(self, a),
+            Imm16(a) => Push::emit(self, a),
+            Imm32(a) => Push::emit(self, a),
+            Reg16(a) => Push::emit(self, a),
+            Reg64(a) => Push::emit(self, a),
+            WordPointer(a) => Push::emit(self, a),
+            QWordPointer(a) => Push::emit(self, a),
             _ => Err(Error::InvalidOperands),
         }
     }
@@ -681,17 +681,17 @@ op! { Push {
 
 
 pub trait Pop<D>: EmitBytes {
-    fn write(&mut self, dst: D) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self, dst: D) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Pop<Operand> for W where W: EmitBytes {
-    fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
-            Reg16(a) => Pop::write(self, a),
-            Reg64(a) => Pop::write(self, a),
-            WordPointer(a) => Pop::write(self, a),
-            QWordPointer(a) => Pop::write(self, a),
+            Reg16(a) => Pop::emit(self, a),
+            Reg64(a) => Pop::emit(self, a),
+            WordPointer(a) => Pop::emit(self, a),
+            QWordPointer(a) => Pop::emit(self, a),
             _ => Err(Error::InvalidOperands),
         }
     }
@@ -707,15 +707,15 @@ op! { Pop {
 
 
 pub trait Call<T>: EmitBytes {
-    fn write(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Call<Operand> for W where W: EmitBytes {
-    fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
-            Offset32(a) => Call::write(self, a),
-            Reg64(a) => Call::write(self, a),
+            Offset32(a) => Call::emit(self, a),
+            Reg64(a) => Call::emit(self, a),
             _ => Err(Error::InvalidOperands),
         }
     }
@@ -729,17 +729,17 @@ op! { Call {
 
 pub trait Jmp<T>: EmitBytes {
     type Return;
-    fn write(&mut self, arg: T) -> Result<Self::Return, Error<Self::Error>>;
+    fn emit(&mut self, arg: T) -> Result<Self::Return, Error<Self::Error>>;
 }
 
 impl<W> Jmp<Operand> for W where W: EmitBytes {
     type Return = ();
-    fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
-            Offset8(a) => Jmp::write(self, a),
-            Offset32(a) => Jmp::write(self, a),
-            Reg64(a) => Jmp::write(self, a),
+            Offset8(a) => Jmp::emit(self, a),
+            Offset32(a) => Jmp::emit(self, a),
+            Reg64(a) => Jmp::emit(self, a),
             _ => Err(Error::InvalidOperands),
         }
     }
@@ -747,7 +747,7 @@ impl<W> Jmp<Operand> for W where W: EmitBytes {
 
 impl<W> Jmp<HoleKind> for W where W: EmitBytes {
     type Return = Hole;
-    fn write(&mut self, arg: HoleKind) -> Result<Hole, Error<Self::Error>> {
+    fn emit(&mut self, arg: HoleKind) -> Result<Hole, Error<Self::Error>> {
         use fixup::HoleKind::*;
         match arg {
             Rel8 => {
@@ -770,7 +770,7 @@ op! { Jmp => () {
 
 
 pub trait Ret: EmitBytes {
-    fn write(&mut self) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self) -> Result<(), Error<Self::Error>>;
 }
 
 op! { Ret {
@@ -782,19 +782,19 @@ macro_rules! cc_op {
     ($( ($cond:ident, $Cmov:ident, $J:ident, $Set:ident) ),*) => {
         $(
         pub trait $Cmov<D, S>: EmitBytes {
-            fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
+            fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
         }
 
         impl<W> $Cmov<Operand, Operand> for W where W: EmitBytes {
-            fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
+            fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match (dst, src) {
-                    (Reg16(d), Reg16(s)) => $Cmov::write(self, d, s),
-                    (Reg32(d), Reg32(s)) => $Cmov::write(self, d, s),
-                    (Reg64(d), Reg64(s)) => $Cmov::write(self, d, s),
-                    (Reg16(d), WordPointer(s)) => $Cmov::write(self, d, s),
-                    (Reg32(d), DWordPointer(s)) => $Cmov::write(self, d, s),
-                    (Reg64(d), QWordPointer(s)) => $Cmov::write(self, d, s),
+                    (Reg16(d), Reg16(s)) => $Cmov::emit(self, d, s),
+                    (Reg32(d), Reg32(s)) => $Cmov::emit(self, d, s),
+                    (Reg64(d), Reg64(s)) => $Cmov::emit(self, d, s),
+                    (Reg16(d), WordPointer(s)) => $Cmov::emit(self, d, s),
+                    (Reg32(d), DWordPointer(s)) => $Cmov::emit(self, d, s),
+                    (Reg64(d), QWordPointer(s)) => $Cmov::emit(self, d, s),
                     _ => Err(Error::InvalidOperands),
                 }
             }
@@ -816,16 +816,16 @@ macro_rules! cc_op {
 
         pub trait $J<T>: EmitBytes {
             type Return;
-            fn write(&mut self, arg: T) -> Result<Self::Return, Error<Self::Error>>;
+            fn emit(&mut self, arg: T) -> Result<Self::Return, Error<Self::Error>>;
         }
 
         impl<W> $J<Operand> for W where W: EmitBytes {
             type Return = ();
-            fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
+            fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match arg {
-                    Offset8(a) => $J::write(self, a),
-                    Offset32(a) => $J::write(self, a),
+                    Offset8(a) => $J::emit(self, a),
+                    Offset32(a) => $J::emit(self, a),
                     _ => Err(Error::InvalidOperands),
                 }
             }
@@ -833,7 +833,7 @@ macro_rules! cc_op {
 
         impl<W> $J<HoleKind> for W where W: EmitBytes {
             type Return = Hole;
-            fn write(&mut self, arg: HoleKind) -> Result<Hole, Error<Self::Error>> {
+            fn emit(&mut self, arg: HoleKind) -> Result<Hole, Error<Self::Error>> {
                 use fixup::HoleKind::*;
                 match arg {
                     Rel8 => {
@@ -856,15 +856,15 @@ macro_rules! cc_op {
 
 
         pub trait $Set<D>: EmitBytes {
-            fn write(&mut self, dst: D) -> Result<(), Error<Self::Error>>;
+            fn emit(&mut self, dst: D) -> Result<(), Error<Self::Error>>;
         }
 
         impl<W> $Set<Operand> for W where W: EmitBytes {
-            fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
+            fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match arg {
-                    Reg8(a) => $Set::write(self, a),
-                    BytePointer(a) => $Set::write(self, a),
+                    Reg8(a) => $Set::emit(self, a),
+                    BytePointer(a) => $Set::emit(self, a),
                     _ => Err(Error::InvalidOperands),
                 }
             }
@@ -913,16 +913,16 @@ cc_op! {
 
 
 pub trait Lea<D, S>: EmitBytes {
-    fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Lea<Operand, Operand> for W where W: EmitBytes {
-    fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
-            (Reg16(d), WordPointer(s)) => Lea::write(self, d, s),
-            (Reg32(d), DWordPointer(s)) => Lea::write(self, d, s),
-            (Reg64(d), QWordPointer(s)) => Lea::write(self, d, s),
+            (Reg16(d), WordPointer(s)) => Lea::emit(self, d, s),
+            (Reg32(d), DWordPointer(s)) => Lea::emit(self, d, s),
+            (Reg64(d), QWordPointer(s)) => Lea::emit(self, d, s),
             _ => Err(Error::InvalidOperands),
         }
     }
@@ -936,23 +936,23 @@ op! { Lea {
 
 
 pub trait Movzx<D, S>: EmitBytes {
-    fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Movzx<Operand, Operand> for W where W: EmitBytes {
-    fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
-            (Reg16(d), Reg8(s)) => Movzx::write(self, d, s),
-            (Reg32(d), Reg8(s)) => Movzx::write(self, d, s),
-            (Reg64(d), Reg8(s)) => Movzx::write(self, d, s),
-            (Reg32(d), Reg16(s)) => Movzx::write(self, d, s),
-            (Reg64(d), Reg16(s)) => Movzx::write(self, d, s),
-            (Reg16(d), BytePointer(s)) => Movzx::write(self, d, s),
-            (Reg32(d), BytePointer(s)) => Movzx::write(self, d, s),
-            (Reg64(d), BytePointer(s)) => Movzx::write(self, d, s),
-            (Reg32(d), WordPointer(s)) => Movzx::write(self, d, s),
-            (Reg64(d), WordPointer(s)) => Movzx::write(self, d, s),
+            (Reg16(d), Reg8(s)) => Movzx::emit(self, d, s),
+            (Reg32(d), Reg8(s)) => Movzx::emit(self, d, s),
+            (Reg64(d), Reg8(s)) => Movzx::emit(self, d, s),
+            (Reg32(d), Reg16(s)) => Movzx::emit(self, d, s),
+            (Reg64(d), Reg16(s)) => Movzx::emit(self, d, s),
+            (Reg16(d), BytePointer(s)) => Movzx::emit(self, d, s),
+            (Reg32(d), BytePointer(s)) => Movzx::emit(self, d, s),
+            (Reg64(d), BytePointer(s)) => Movzx::emit(self, d, s),
+            (Reg32(d), WordPointer(s)) => Movzx::emit(self, d, s),
+            (Reg64(d), WordPointer(s)) => Movzx::emit(self, d, s),
             _ => Err(Error::InvalidOperands),
         }
     }
@@ -974,23 +974,23 @@ op! { Movzx {
 
 
 pub trait Movsx<D, S>: EmitBytes {
-    fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Movsx<Operand, Operand> for W where W: EmitBytes {
-    fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
-            (Reg16(d), Reg8(s)) => Movsx::write(self, d, s),
-            (Reg32(d), Reg8(s)) => Movsx::write(self, d, s),
-            (Reg64(d), Reg8(s)) => Movsx::write(self, d, s),
-            (Reg32(d), Reg16(s)) => Movsx::write(self, d, s),
-            (Reg64(d), Reg16(s)) => Movsx::write(self, d, s),
-            (Reg16(d), BytePointer(s)) => Movsx::write(self, d, s),
-            (Reg32(d), BytePointer(s)) => Movsx::write(self, d, s),
-            (Reg64(d), BytePointer(s)) => Movsx::write(self, d, s),
-            (Reg32(d), WordPointer(s)) => Movsx::write(self, d, s),
-            (Reg64(d), WordPointer(s)) => Movsx::write(self, d, s),
+            (Reg16(d), Reg8(s)) => Movsx::emit(self, d, s),
+            (Reg32(d), Reg8(s)) => Movsx::emit(self, d, s),
+            (Reg64(d), Reg8(s)) => Movsx::emit(self, d, s),
+            (Reg32(d), Reg16(s)) => Movsx::emit(self, d, s),
+            (Reg64(d), Reg16(s)) => Movsx::emit(self, d, s),
+            (Reg16(d), BytePointer(s)) => Movsx::emit(self, d, s),
+            (Reg32(d), BytePointer(s)) => Movsx::emit(self, d, s),
+            (Reg64(d), BytePointer(s)) => Movsx::emit(self, d, s),
+            (Reg32(d), WordPointer(s)) => Movsx::emit(self, d, s),
+            (Reg64(d), WordPointer(s)) => Movsx::emit(self, d, s),
             _ => Err(Error::InvalidOperands),
         }
     }
@@ -1012,7 +1012,7 @@ op! { Movsx {
 
 
 pub trait Cdq: EmitBytes {
-    fn write(&mut self) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self) -> Result<(), Error<Self::Error>>;
 }
 
 op! { Cdq {
@@ -1021,25 +1021,25 @@ op! { Cdq {
 
 
 pub trait Xchg<D, S>: EmitBytes {
-    fn write(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
+    fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
 impl<W> Xchg<Operand, Operand> for W where W: EmitBytes {
-    fn write(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
-            (Reg8(d), Reg8(s)) => Xchg::write(self, d, s),
-            (Reg16(d), Reg16(s)) => Xchg::write(self, d, s),
-            (Reg32(d), Reg32(s)) => Xchg::write(self, d, s),
-            (Reg64(d), Reg64(s)) => Xchg::write(self, d, s),
-            (Reg8(d), BytePointer(s)) => Xchg::write(self, d, s),
-            (Reg16(d), WordPointer(s)) => Xchg::write(self, d, s),
-            (Reg32(d), DWordPointer(s)) => Xchg::write(self, d, s),
-            (Reg64(d), QWordPointer(s)) => Xchg::write(self, d, s),
-            (BytePointer(d), Reg8(s)) => Xchg::write(self, d, s),
-            (WordPointer(d), Reg16(s)) => Xchg::write(self, d, s),
-            (DWordPointer(d), Reg32(s)) => Xchg::write(self, d, s),
-            (QWordPointer(d), Reg64(s)) => Xchg::write(self, d, s),
+            (Reg8(d), Reg8(s)) => Xchg::emit(self, d, s),
+            (Reg16(d), Reg16(s)) => Xchg::emit(self, d, s),
+            (Reg32(d), Reg32(s)) => Xchg::emit(self, d, s),
+            (Reg64(d), Reg64(s)) => Xchg::emit(self, d, s),
+            (Reg8(d), BytePointer(s)) => Xchg::emit(self, d, s),
+            (Reg16(d), WordPointer(s)) => Xchg::emit(self, d, s),
+            (Reg32(d), DWordPointer(s)) => Xchg::emit(self, d, s),
+            (Reg64(d), QWordPointer(s)) => Xchg::emit(self, d, s),
+            (BytePointer(d), Reg8(s)) => Xchg::emit(self, d, s),
+            (WordPointer(d), Reg16(s)) => Xchg::emit(self, d, s),
+            (DWordPointer(d), Reg32(s)) => Xchg::emit(self, d, s),
+            (QWordPointer(d), Reg64(s)) => Xchg::emit(self, d, s),
             _ => Err(Error::InvalidOperands),
         }
     }

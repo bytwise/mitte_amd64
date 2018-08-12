@@ -78,17 +78,17 @@ impl Label {
 
 impl<'a, W> Jmp<&'a mut Label> for W where W: EmitBytes {
     type Return = ();
-    fn write(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
+    fn emit(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
         if let Some(addr) = label.address {
             let offset = addr as isize - (self.pos() as isize + 5);
 
             match offset {
-                -0x8000_0000...0x7fff_ffff => try!(Jmp::write(self, offset as i32)),
+                -0x8000_0000...0x7fff_ffff => try!(Jmp::emit(self, offset as i32)),
                 _ => return Err(Error::LabelTooFarAway),
             }
             Ok(())
         } else {
-            let hole = try!(Jmp::write(self, HoleKind::Rel32));
+            let hole = try!(Jmp::emit(self, HoleKind::Rel32));
             label.unresolved_locs.push(hole);
             Ok(())
         }
@@ -101,19 +101,19 @@ macro_rules! jcc {
         $(
             impl<'a, W> $J<&'a mut Label> for W where W: EmitBytes {
                 type Return = ();
-                fn write(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
+                fn emit(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
                     if let Some(addr) = label.address {
                         let offset = addr as isize - (self.pos() as isize + 6);
 
                         match offset {
                             -0x8000_0000...0x7fff_ffff => {
-                                try!($J::write(self, offset as i32))
+                                try!($J::emit(self, offset as i32))
                             }
                             _ => return Err(Error::LabelTooFarAway),
                         }
                         Ok(())
                     } else {
-                        let hole = try!($J::write(self, HoleKind::Rel32));
+                        let hole = try!($J::emit(self, HoleKind::Rel32));
                         label.unresolved_locs.push(hole);
                         Ok(())
                     }

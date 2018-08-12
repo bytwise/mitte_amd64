@@ -15,7 +15,7 @@ macro_rules! op {
         impl<W $($(, $A)*)*> $Trait<$($T),*> for W
             where W: ::EmitBytes $($(, $A : $bound)*)*
         {
-            fn write(&mut self, $($arg: $T),*)
+            fn emit(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
@@ -41,7 +41,7 @@ macro_rules! op {
         impl<W $($(, $A)*)*> $Trait<$($T),*> for W
             where W: ::EmitBytes $($(, $A : $bound)*)*
         {
-            fn write(&mut self, $($arg: $T),*)
+            fn emit(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
@@ -69,7 +69,7 @@ macro_rules! op {
         }
     ) => {
         impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
-            fn write(&mut self, $($arg: $T),*)
+            fn emit(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
@@ -96,7 +96,7 @@ macro_rules! op {
         impl<W $($(, $A)*)*> $Trait<$($T),*> for W
             where W: ::EmitBytes $($(, $A : $bound)*)*
         {
-            fn write(&mut self, $($arg: $T),*)
+            fn emit(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
@@ -115,7 +115,7 @@ macro_rules! op {
     ) => {
         impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
             type Return = $R;
-            fn write(&mut self, $($arg: $T),*)
+            fn emit(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<$R, ::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]

@@ -115,14 +115,14 @@ macro_rules! forward1 {
         fn $f<$($T),*>(&mut self $(, $arg: $T)*) -> Result<(), Error<Self::Error>>
             where Self: $Trait<$($T),*>
         {
-            $Trait::write(self $(, $arg)*)
+            $Trait::emit(self $(, $arg)*)
         }
     };
     ($f:ident ($($arg:ident : $T:ident),*) -> $R:ident => $Trait:ident) => {
         fn $f<$($T,)* $R>(&mut self $(, $arg: $T)*) -> Result<$R, Error<Self::Error>>
             where Self: $Trait<$($T,)* Return=$R>
         {
-            $Trait::write(self $(, $arg)*)
+            $Trait::emit(self $(, $arg)*)
         }
     };
 }
