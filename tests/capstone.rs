@@ -1585,6 +1585,71 @@ fn test_byte_ptr_reg8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> R
 }
 
 
+fn test_word_ptr_imm8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
+    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
+        .cloned().collect::<Vec<_>>();
+
+    {
+        let mut code = Vec::new();
+        f(&mut code, word_pointer(0x42i8), Operand::Imm8(0x5a)).unwrap();
+        let expected_disasm = vec![Some("word ptr [0x42], 0x5a")];
+        test_disasm(mnemonic, &expected_disasm, &code);
+    }
+
+    {
+        let mut code = Vec::new();
+        f(&mut code, word_pointer(0x12345678), Operand::Imm8(0x5a)).unwrap();
+        let expected_disasm = vec![Some("word ptr [0x12345678], 0x5a")];
+        test_disasm(mnemonic, &expected_disasm, &code);
+    }
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             REGS64,
+             |r| (word_pointer(r), Operand::Imm8(0x5a)),
+             |s| format!("word ptr [{}], 0x5a", s));
+
+    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
+             &index_regs,
+             |r| (word_pointer(r*4), Operand::Imm8(0x5a)),
+             |s| format!("word ptr [{}*4], 0x5a", s));
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             REGS64,
+             |r| (word_pointer(r + 0x42i8), Operand::Imm8(0x5a)),
+             |s| format!("word ptr [{} + 0x42], 0x5a", s));
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             REGS64,
+             |r| (word_pointer(r + 0x12345678), Operand::Imm8(0x5a)),
+             |s| format!("word ptr [{} + 0x12345678], 0x5a", s));
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             &index_regs,
+             |r| (word_pointer(r*4 + 0x42i8), Operand::Imm8(0x5a)),
+             |s| format!("word ptr [{}*4 + 0x42], 0x5a", s));
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             &index_regs,
+             |r| (word_pointer(r*4 + 0x12345678), Operand::Imm8(0x5a)),
+             |s| format!("word ptr [{}*4 + 0x12345678], 0x5a", s));
+
+    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+                 REGS64, &index_regs,
+                 |r1, r2| (word_pointer(r1 + r2*4), Operand::Imm8(0x5a)),
+                 |s1, s2| format!("word ptr [{} + {}*4], 0x5a", s1, s2));
+
+    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+                 REGS64, &index_regs,
+                 |r1, r2| (word_pointer(r1 + r2*4 + 0x42i8), Operand::Imm8(0x5a)),
+                 |s1, s2| format!("word ptr [{} + {}*4 + 0x42], 0x5a", s1, s2));
+
+    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+                 REGS64, &index_regs,
+                 |r1, r2| (word_pointer(r1 + r2*4 + 0x12345678), Operand::Imm8(0x5a)),
+                 |s1, s2| format!("word ptr [{} + {}*4 + 0x12345678], 0x5a", s1, s2));
+}
+
+
 fn test_word_ptr_imm16(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
     let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
         .cloned().collect::<Vec<_>>();
@@ -1711,6 +1776,71 @@ fn test_word_ptr_reg16(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> 
 }
 
 
+fn test_dword_ptr_imm8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
+    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
+        .cloned().collect::<Vec<_>>();
+
+    {
+        let mut code = Vec::new();
+        f(&mut code, dword_pointer(0x42i8), Operand::Imm8(0x5a)).unwrap();
+        let expected_disasm = vec![Some("dword ptr [0x42], 0x5a")];
+        test_disasm(mnemonic, &expected_disasm, &code);
+    }
+
+    {
+        let mut code = Vec::new();
+        f(&mut code, dword_pointer(0x12345678), Operand::Imm8(0x5a)).unwrap();
+        let expected_disasm = vec![Some("dword ptr [0x12345678], 0x5a")];
+        test_disasm(mnemonic, &expected_disasm, &code);
+    }
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             REGS64,
+             |r| (dword_pointer(r), Operand::Imm8(0x5a)),
+             |s| format!("dword ptr [{}], 0x5a", s));
+
+    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
+             &index_regs,
+             |r| (dword_pointer(r*4), Operand::Imm8(0x5a)),
+             |s| format!("dword ptr [{}*4], 0x5a", s));
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             REGS64,
+             |r| (dword_pointer(r + 0x42i8), Operand::Imm8(0x5a)),
+             |s| format!("dword ptr [{} + 0x42], 0x5a", s));
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             REGS64,
+             |r| (dword_pointer(r + 0x12345678), Operand::Imm8(0x5a)),
+             |s| format!("dword ptr [{} + 0x12345678], 0x5a", s));
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             &index_regs,
+             |r| (dword_pointer(r*4 + 0x42i8), Operand::Imm8(0x5a)),
+             |s| format!("dword ptr [{}*4 + 0x42], 0x5a", s));
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             &index_regs,
+             |r| (dword_pointer(r*4 + 0x12345678), Operand::Imm8(0x5a)),
+             |s| format!("dword ptr [{}*4 + 0x12345678], 0x5a", s));
+
+    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+                 REGS64, &index_regs,
+                 |r1, r2| (dword_pointer(r1 + r2*4), Operand::Imm8(0x5a)),
+                 |s1, s2| format!("dword ptr [{} + {}*4], 0x5a", s1, s2));
+
+    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+                 REGS64, &index_regs,
+                 |r1, r2| (dword_pointer(r1 + r2*4 + 0x42i8), Operand::Imm8(0x5a)),
+                 |s1, s2| format!("dword ptr [{} + {}*4 + 0x42], 0x5a", s1, s2));
+
+    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+                 REGS64, &index_regs,
+                 |r1, r2| (dword_pointer(r1 + r2*4 + 0x12345678), Operand::Imm8(0x5a)),
+                 |s1, s2| format!("dword ptr [{} + {}*4 + 0x12345678], 0x5a", s1, s2));
+}
+
+
 fn test_dword_ptr_imm32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
     let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
         .cloned().collect::<Vec<_>>();
@@ -1834,6 +1964,71 @@ fn test_dword_ptr_reg32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) ->
                      REGS64, &index_regs, REGS32,
                      |r1, r2, r3| (dword_pointer(r1 + r2*4 + 0x12345678), Operand::Reg32(r3)),
                      |s1, s2, s3| format!("dword ptr [{} + {}*4 + 0x12345678], {}", s1, s2, s3));
+}
+
+
+fn test_qword_ptr_imm8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
+    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
+        .cloned().collect::<Vec<_>>();
+
+    {
+        let mut code = Vec::new();
+        f(&mut code, qword_pointer(0x42i8), Operand::Imm8(0x5a)).unwrap();
+        let expected_disasm = vec![Some("qword ptr [0x42], 0x5a")];
+        test_disasm(mnemonic, &expected_disasm, &code);
+    }
+
+    {
+        let mut code = Vec::new();
+        f(&mut code, qword_pointer(0x12345678), Operand::Imm8(0x5a)).unwrap();
+        let expected_disasm = vec![Some("qword ptr [0x12345678], 0x5a")];
+        test_disasm(mnemonic, &expected_disasm, &code);
+    }
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             REGS64,
+             |r| (qword_pointer(r), Operand::Imm8(0x5a)),
+             |s| format!("qword ptr [{}], 0x5a", s));
+
+    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
+             &index_regs,
+             |r| (qword_pointer(r*4), Operand::Imm8(0x5a)),
+             |s| format!("qword ptr [{}*4], 0x5a", s));
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             REGS64,
+             |r| (qword_pointer(r + 0x42i8), Operand::Imm8(0x5a)),
+             |s| format!("qword ptr [{} + 0x42], 0x5a", s));
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             REGS64,
+             |r| (qword_pointer(r + 0x12345678), Operand::Imm8(0x5a)),
+             |s| format!("qword ptr [{} + 0x12345678], 0x5a", s));
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             &index_regs,
+             |r| (qword_pointer(r*4 + 0x42i8), Operand::Imm8(0x5a)),
+             |s| format!("qword ptr [{}*4 + 0x42], 0x5a", s));
+
+    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+             &index_regs,
+             |r| (qword_pointer(r*4 + 0x12345678), Operand::Imm8(0x5a)),
+             |s| format!("qword ptr [{}*4 + 0x12345678], 0x5a", s));
+
+    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+                 REGS64, &index_regs,
+                 |r1, r2| (qword_pointer(r1 + r2*4), Operand::Imm8(0x5a)),
+                 |s1, s2| format!("qword ptr [{} + {}*4], 0x5a", s1, s2));
+
+    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+                 REGS64, &index_regs,
+                 |r1, r2| (qword_pointer(r1 + r2*4 + 0x42i8), Operand::Imm8(0x5a)),
+                 |s1, s2| format!("qword ptr [{} + {}*4 + 0x42], 0x5a", s1, s2));
+
+    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
+                 REGS64, &index_regs,
+                 |r1, r2| (qword_pointer(r1 + r2*4 + 0x12345678), Operand::Imm8(0x5a)),
+                 |s1, s2| format!("qword ptr [{} + {}*4 + 0x12345678], 0x5a", s1, s2));
 }
 
 
@@ -2078,6 +2273,11 @@ macro_rules! test_shift {
         test_shift_reg16($mnemonic, $f);
         test_shift_reg32($mnemonic, $f);
         test_shift_reg64($mnemonic, $f);
+
+        test_byte_ptr_imm8($mnemonic, $f);
+        test_word_ptr_imm8($mnemonic, $f);
+        test_dword_ptr_imm8($mnemonic, $f);
+        test_qword_ptr_imm8($mnemonic, $f);
     }
 }
 

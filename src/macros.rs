@@ -5,13 +5,16 @@ macro_rules! op {
     (
         $Trait:ident
         {
+            $(<$($A:ident : $bound:ident),*>)*
             $($arg:ident : $T:ty),+
                 ; assert_eq!($assert_e1:expr, $assert_e2:expr)
                 => ($enc:ty) $($e:expr),*;
             $($rest:tt)*
         }
     ) => {
-        impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
+        impl<W $($(, $A)*)*> $Trait<$($T),*> for W
+            where W: ::EmitBytes $($(, $A : $bound)*)*
+        {
             fn write(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
@@ -26,6 +29,7 @@ macro_rules! op {
     (
         $Trait:ident
         {
+            $(<$($A:ident : $bound:ident),*>)*
             $($arg:ident : $T:ty),* => if ($cond:expr) {
                 ($enc1:ty) $($e1:expr),*
             } else {
@@ -34,7 +38,9 @@ macro_rules! op {
             $($rest:tt)*
         }
     ) => {
-        impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
+        impl<W $($(, $A)*)*> $Trait<$($T),*> for W
+            where W: ::EmitBytes $($(, $A : $bound)*)*
+        {
             fn write(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {

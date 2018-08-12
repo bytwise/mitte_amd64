@@ -4,7 +4,7 @@ use ptr::{Mem, Byte, Word, DWord, QWord};
 use operand::Operand;
 use error::Error;
 use fixup::{HoleKind, Hole};
-use encode::{None, D, I, M, O, MI, MR, RM, OI, XchgSrc, XchgDst};
+use encode::{None, D, I, M, O, M1, MI, MC, MR, RM, OI, XchgSrc, XchgDst};
 use encode::{Prefix, RexW, Op, OpPlusReg, ModRm, ModRmIndex, Imm8, Imm16, Imm32, Imm64};
 
 
@@ -219,26 +219,30 @@ macro_rules! binary_arith_op {
         }
 
         op! { $Op {
-            dst: Reg8, src: u8 => if (dst == Reg8::Al) {
-                (I) Op($op.al), Imm8
-            } else {
-                (MI) Op($op.imm8), ModRmIndex($op.index), Imm8
-            };
-            dst: Reg16, src: u16 => if (dst == Reg16::Ax) {
-                (I) Prefix(0x66), Op($op.eax), Imm16
-            } else {
-                (MI) Prefix(0x66), Op($op.imm32), ModRmIndex($op.index), Imm16
-            };
-            dst: Reg32, src: u32 => if (dst == Reg32::Eax) {
-                (I) Op($op.eax), Imm32
-            } else {
-                (MI) Op($op.imm32), ModRmIndex($op.index), Imm32
-            };
-            dst: Reg64, src: u32 => if (dst == Reg64::Rax) {
-                (I) RexW, Op($op.eax), Imm32
-            } else {
-                (MI) RexW, Op($op.imm32), ModRmIndex($op.index), Imm32
-            };
+            dst: Reg8, src: u8 =>
+                if (dst == Reg8::Al) {
+                    (I) Op($op.al), Imm8
+                } else {
+                    (MI) Op($op.imm8), ModRmIndex($op.index), Imm8
+                };
+            dst: Reg16, src: u16 =>
+                if (dst == Reg16::Ax) {
+                    (I) Prefix(0x66), Op($op.eax), Imm16
+                } else {
+                    (MI) Prefix(0x66), Op($op.imm32), ModRmIndex($op.index), Imm16
+                };
+            dst: Reg32, src: u32 =>
+                if (dst == Reg32::Eax) {
+                    (I) Op($op.eax), Imm32
+                } else {
+                    (MI) Op($op.imm32), ModRmIndex($op.index), Imm32
+                };
+            dst: Reg64, src: u32 =>
+                if (dst == Reg64::Rax) {
+                    (I) RexW, Op($op.eax), Imm32
+                } else {
+                    (MI) RexW, Op($op.imm32), ModRmIndex($op.index), Imm32
+                };
 
             dst: Reg16, src: u8 =>
                 (MI) Prefix(0x66), Op($op.sext_imm8), ModRmIndex($op.index), Imm8;
@@ -300,28 +304,93 @@ macro_rules! shift_op {
                     (Reg16(d), Reg8(s)) => $Op::write(self, d, s),
                     (Reg32(d), Reg8(s)) => $Op::write(self, d, s),
                     (Reg64(d), Reg8(s)) => $Op::write(self, d, s),
+                    (BytePointer(d), Imm8(s)) => $Op::write(self, d, s),
+                    (WordPointer(d), Imm8(s)) => $Op::write(self, d, s),
+                    (DWordPointer(d), Imm8(s)) => $Op::write(self, d, s),
+                    (QWordPointer(d), Imm8(s)) => $Op::write(self, d, s),
+                    (BytePointer(d), Reg8(s)) => $Op::write(self, d, s),
+                    (WordPointer(d), Reg8(s)) => $Op::write(self, d, s),
+                    (DWordPointer(d), Reg8(s)) => $Op::write(self, d, s),
+                    (QWordPointer(d), Reg8(s)) => $Op::write(self, d, s),
                     _ => Err(Error::InvalidOperands),
                 }
             }
         }
 
         op! { $Op {
-            r: Reg8,  shift: u8 => (MI)                 Op(0xc0), ModRmIndex($op.index), Imm8;
-            r: Reg16, shift: u8 => (MI) Prefix(0x66u8), Op(0xc1), ModRmIndex($op.index), Imm8;
-            r: Reg32, shift: u8 => (MI)                 Op(0xc1), ModRmIndex($op.index), Imm8;
-            r: Reg64, shift: u8 => (MI) RexW,           Op(0xc1), ModRmIndex($op.index), Imm8;
+            r: Reg8,  shift: u8 =>
+                if (shift == 1) {
+                    (M1) Op(0xd0), ModRmIndex($op.index)
+                } else {
+                    (MI) Op(0xc0), ModRmIndex($op.index), Imm8
+                };
+            r: Reg16, shift: u8 =>
+                if (shift == 1) {
+                    (M1) Prefix(0x66u8), Op(0xd1), ModRmIndex($op.index)
+                } else {
+                    (MI) Prefix(0x66u8), Op(0xc1), ModRmIndex($op.index), Imm8
+                };
+            r: Reg32, shift: u8 =>
+                if (shift == 1) {
+                    (M1) Op(0xd1), ModRmIndex($op.index)
+                } else {
+                    (MI) Op(0xc1), ModRmIndex($op.index), Imm8
+                };
+            r: Reg64, shift: u8 =>
+                if (shift == 1) {
+                    (M1) RexW, Op(0xd1), ModRmIndex($op.index)
+                } else {
+                    (MI) RexW, Op(0xc1), ModRmIndex($op.index), Imm8
+                };
 
             r: Reg8,  shift: Reg8; assert_eq!(shift, Reg8::Cl)
-                => (M) Op(0xd2), ModRmIndex($op.index);
+                => (MC) Op(0xd2), ModRmIndex($op.index);
 
             r: Reg16, shift: Reg8; assert_eq!(shift, Reg8::Cl)
-                => (M) Prefix(0x66), Op(0xd3), ModRmIndex($op.index);
+                => (MC) Prefix(0x66), Op(0xd3), ModRmIndex($op.index);
 
             r: Reg32, shift: Reg8; assert_eq!(shift, Reg8::Cl)
-                => (M) Op(0xd3), ModRmIndex($op.index);
+                => (MC) Op(0xd3), ModRmIndex($op.index);
 
             r: Reg64, shift: Reg8; assert_eq!(shift, Reg8::Cl)
-                => (M) RexW, Op(0xd3), ModRmIndex($op.index);
+                => (MC) RexW, Op(0xd3), ModRmIndex($op.index);
+
+            <P: Mem> p: Byte<P>,  shift: u8 =>
+                if (shift == 1) {
+                    (M1) Op(0xd0), ModRmIndex($op.index)
+                } else {
+                    (MI) Op(0xc0), ModRmIndex($op.index), Imm8
+                };
+            <P: Mem> p: Word<P>, shift: u8 =>
+                if (shift == 1) {
+                    (M1) Prefix(0x66u8), Op(0xd1), ModRmIndex($op.index)
+                } else {
+                    (MI) Prefix(0x66u8), Op(0xc1), ModRmIndex($op.index), Imm8
+                };
+            <P: Mem> p: DWord<P>, shift: u8 =>
+                if (shift == 1) {
+                    (M1) Op(0xd1), ModRmIndex($op.index)
+                } else {
+                    (MI) Op(0xc1), ModRmIndex($op.index), Imm8
+                };
+            <P: Mem> p: QWord<P>, shift: u8 =>
+                if (shift == 1) {
+                    (M1) RexW, Op(0xd1), ModRmIndex($op.index)
+                } else {
+                    (MI) RexW, Op(0xc1), ModRmIndex($op.index), Imm8
+                };
+
+            <P: Mem> p: Byte<P>,  shift: Reg8; assert_eq!(shift, Reg8::Cl)
+                => (MC) Op(0xd2), ModRmIndex($op.index);
+
+            <P: Mem> p: Word<P>,  shift: Reg8; assert_eq!(shift, Reg8::Cl)
+                => (MC) Prefix(0x66), Op(0xd3), ModRmIndex($op.index);
+
+            <P: Mem> p: DWord<P>, shift: Reg8; assert_eq!(shift, Reg8::Cl)
+                => (MC) Op(0xd3), ModRmIndex($op.index);
+
+            <P: Mem> p: QWord<P>, shift: Reg8; assert_eq!(shift, Reg8::Cl)
+                => (MC) RexW, Op(0xd3), ModRmIndex($op.index);
         }}
         )*
     };
@@ -474,26 +543,30 @@ impl<W> Test<Operand, Operand> for W where W: EmitBytes {
 }
 
 op! { Test {
-    r: Reg8, imm: u8 => if (r == Reg8::Al) {
-        (I) Op(0xa8), Imm8
-    } else {
-        (MI) Op(0xf6), ModRmIndex(0), Imm8
-    };
-    r: Reg16, imm: u16 => if (r == Reg16::Ax) {
-        (I) Prefix(0x66), Op(0xa9), Imm16
-    } else {
-        (MI) Prefix(0x66), Op(0xf7), ModRmIndex(0), Imm16
-    };
-    r: Reg32, imm: u32 => if (r == Reg32::Eax) {
-        (I) Op(0xa9), Imm32
-    } else {
-        (MI) Op(0xf7), ModRmIndex(0), Imm32
-    };
-    r: Reg64, imm: u32 => if (r == Reg64::Rax) {
-        (I) RexW, Op(0xa9), Imm32
-    } else {
-        (MI) RexW, Op(0xf7), ModRmIndex(0), Imm32
-    };
+    r: Reg8, imm: u8 =>
+        if (r == Reg8::Al) {
+            (I) Op(0xa8), Imm8
+        } else {
+            (MI) Op(0xf6), ModRmIndex(0), Imm8
+        };
+    r: Reg16, imm: u16 =>
+        if (r == Reg16::Ax) {
+            (I) Prefix(0x66), Op(0xa9), Imm16
+        } else {
+            (MI) Prefix(0x66), Op(0xf7), ModRmIndex(0), Imm16
+        };
+    r: Reg32, imm: u32 =>
+        if (r == Reg32::Eax) {
+            (I) Op(0xa9), Imm32
+        } else {
+            (MI) Op(0xf7), ModRmIndex(0), Imm32
+        };
+    r: Reg64, imm: u32 =>
+        if (r == Reg64::Rax) {
+            (I) RexW, Op(0xa9), Imm32
+        } else {
+            (MI) RexW, Op(0xf7), ModRmIndex(0), Imm32
+        };
 
     r1: Reg8,  r2: Reg8  => (MR)               Op(0x84), ModRm;
     r1: Reg16, r2: Reg16 => (MR) Prefix(0x66), Op(0x85), ModRm;

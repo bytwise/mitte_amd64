@@ -11,7 +11,9 @@ pub struct D;
 pub struct I;
 pub struct M;
 pub struct O;
+pub struct M1;
 pub struct MI;
+pub struct MC;
 pub struct MR;
 pub struct RM;
 pub struct OI;
@@ -425,6 +427,23 @@ impl Encode<OI, (Reg8, u8)> for (OpPlusReg, Imm8) {
     }
 }
 
+impl Encode<M1, (Reg8, u8)> for (Op, ModRmIndex) {
+    fn encode<E>(emitter: &mut E, (reg, imm): (Reg8, u8), this: Self) -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        debug_assert!(imm == 1);
+        let (Op(op), ModRmIndex(modrm_index)) = this;
+        let mut buffer = Buffer::new();
+        if let Some(rex) = rex_b(reg)? {
+            buffer.write_u8(rex);
+        }
+        buffer.write_u8(op);
+        buffer.write_u8(modrm(3, modrm_index, reg.rm()));
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
 impl Encode<MI, (Reg8, u8)> for (Op, ModRmIndex, Imm8) {
     fn encode<E>(emitter: &mut E, (reg, imm): (Reg8, u8), this: Self) -> Result<(), Error<E::Error>>
         where E: EmitBytes
@@ -442,7 +461,7 @@ impl Encode<MI, (Reg8, u8)> for (Op, ModRmIndex, Imm8) {
     }
 }
 
-impl Encode<M, (Reg8, Reg8)> for (Op, ModRmIndex) {
+impl Encode<MC, (Reg8, Reg8)> for (Op, ModRmIndex) {
     fn encode<E>(emitter: &mut E, (reg, cl): (Reg8, Reg8), this: Self) -> Result<(), Error<E::Error>>
         where E: EmitBytes
     {
@@ -510,6 +529,24 @@ impl Encode<I, (Reg16, u16)> for (Prefix, Op, Imm16) {
     }
 }
 
+impl Encode<M1, (Reg16, u8)> for (Prefix, Op, ModRmIndex) {
+    fn encode<E>(emitter: &mut E, (reg, imm): (Reg16, u8), this: Self) -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        debug_assert!(imm == 1);
+        let (Prefix(prefix), Op(op), ModRmIndex(modrm_index)) = this;
+        let mut buffer = Buffer::new();
+        buffer.write_u8(prefix);
+        if let Some(rex) = rex_b(reg)? {
+            buffer.write_u8(rex);
+        }
+        buffer.write_u8(op);
+        buffer.write_u8(modrm(3, modrm_index, reg.rm()));
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
 impl Encode<MI, (Reg16, u8)> for (Prefix, Op, ModRmIndex, Imm8) {
     fn encode<E>(emitter: &mut E, (reg, imm): (Reg16, u8), this: Self) -> Result<(), Error<E::Error>>
         where E: EmitBytes
@@ -563,7 +600,7 @@ impl Encode<MI, (Reg16, u16)> for (Prefix, Op, ModRmIndex, Imm16) {
     }
 }
 
-impl Encode<M, (Reg16, Reg8)> for (Prefix, Op, ModRmIndex) {
+impl Encode<MC, (Reg16, Reg8)> for (Prefix, Op, ModRmIndex) {
     fn encode<E>(emitter: &mut E, (reg, cl): (Reg16, Reg8), this: Self) -> Result<(), Error<E::Error>>
         where E: EmitBytes
     {
@@ -733,6 +770,23 @@ impl<P> Encode<RM, (Reg16, Word<P>)> for (Prefix, Op, Op, ModRm)
     }
 }
 
+impl Encode<M1, (Reg32, u8)> for (Op, ModRmIndex) {
+    fn encode<E>(emitter: &mut E, (reg, imm): (Reg32, u8), this: Self) -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        debug_assert!(imm == 1);
+        let (Op(op), ModRmIndex(modrm_index)) = this;
+        let mut buffer = Buffer::new();
+        if let Some(rex) = rex_b(reg)? {
+            buffer.write_u8(rex);
+        }
+        buffer.write_u8(op);
+        buffer.write_u8(modrm(3, modrm_index, reg.rm()));
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
 impl Encode<MI, (Reg32, u8)> for (Op, ModRmIndex, Imm8) {
     fn encode<E>(emitter: &mut E, (reg, imm): (Reg32, u8), this: Self) -> Result<(), Error<E::Error>>
         where E: EmitBytes
@@ -797,7 +851,7 @@ impl Encode<MI, (Reg32, u32)> for (Op, ModRmIndex, Imm32) {
     }
 }
 
-impl Encode<M, (Reg32, Reg8)> for (Op, ModRmIndex) {
+impl Encode<MC, (Reg32, Reg8)> for (Op, ModRmIndex) {
     fn encode<E>(emitter: &mut E, (reg, cl): (Reg32, Reg8), this: Self) -> Result<(), Error<E::Error>>
         where E: EmitBytes
     {
@@ -996,6 +1050,23 @@ impl<P> Encode<RM, (Reg32, DWord<P>)> for (Op, Op, ModRm)
     }
 }
 
+impl Encode<M1, (Reg64, u8)> for (RexW, Op, ModRmIndex) {
+    fn encode<E>(emitter: &mut E, (reg, imm): (Reg64, u8), this: Self) -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        debug_assert!(imm == 1);
+        let (RexW, Op(op), ModRmIndex(modrm_index)) = this;
+        let mut buffer = Buffer::new();
+        if let Some(rex) = rex_b(reg)? {
+            buffer.write_u8(rex);
+        }
+        buffer.write_u8(op);
+        buffer.write_u8(modrm(3, modrm_index, reg.rm()));
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
 impl Encode<MI, (Reg64, u8)> for (RexW, Op, ModRmIndex, Imm8) {
     fn encode<E>(emitter: &mut E, (reg, imm): (Reg64, u8), this: Self) -> Result<(), Error<E::Error>>
         where E: EmitBytes
@@ -1061,7 +1132,7 @@ impl Encode<OI, (Reg64, u64)> for (RexW, OpPlusReg, Imm64) {
     }
 }
 
-impl Encode<M, (Reg64, Reg8)> for (RexW, Op, ModRmIndex) {
+impl Encode<MC, (Reg64, Reg8)> for (RexW, Op, ModRmIndex) {
     fn encode<E>(emitter: &mut E, (reg, cl): (Reg64, Reg8), this: Self) -> Result<(), Error<E::Error>>
         where E: EmitBytes
     {
@@ -1258,6 +1329,27 @@ impl<P> Encode<RM, (Reg64, QWord<P>)> for (RexW, Op, Op, ModRm)
     }
 }
 
+impl<P> Encode<M1, (Byte<P>, u8)> for (Op, ModRmIndex)
+    where P: Mem
+{
+    fn encode<E>(emitter: &mut E, (ptr, imm): (Byte<P>, u8), this: Self)
+        -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        debug_assert!(imm == 1);
+        let (Op(op), ModRmIndex(modrm_index)) = this;
+        let ptr = ptr.0;
+        let mut buffer = Buffer::new();
+        if let Some(rex) = ptr.rex()? {
+            buffer.write_u8(rex);
+        }
+        buffer.write_u8(op);
+        Args::write(&mut buffer, ptr, modrm_index)?;
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
 impl<P> Encode<MI, (Byte<P>, u8)> for (Op, ModRmIndex, Imm8)
     where P: Mem
 {
@@ -1279,6 +1371,27 @@ impl<P> Encode<MI, (Byte<P>, u8)> for (Op, ModRmIndex, Imm8)
     }
 }
 
+impl<P> Encode<MC, (Byte<P>, Reg8)> for (Op, ModRmIndex)
+    where P: Mem
+{
+    fn encode<E>(emitter: &mut E, (ptr, cl): (Byte<P>, Reg8), this: Self)
+        -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        debug_assert!(cl == Reg8::Cl);
+        let (Op(op), ModRmIndex(modrm_index)) = this;
+        let ptr = ptr.0;
+        let mut buffer = Buffer::new();
+        if let Some(rex) = ptr.rex()? {
+            buffer.write_u8(rex);
+        }
+        buffer.write_u8(op);
+        Args::write(&mut buffer, ptr, modrm_index)?;
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
 impl<P> Encode<MR, (Byte<P>, Reg8)> for (Op, ModRm)
     where P: Mem
 {
@@ -1294,6 +1407,50 @@ impl<P> Encode<MR, (Byte<P>, Reg8)> for (Op, ModRm)
         }
         buffer.write_u8(op);
         Args::write(&mut buffer, ptr, reg.rm())?;
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
+impl<P> Encode<M1, (Word<P>, u8)> for (Prefix, Op, ModRmIndex)
+    where P: Mem
+{
+    fn encode<E>(emitter: &mut E, (ptr, imm): (Word<P>, u8), this: Self)
+        -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        debug_assert!(imm == 1);
+        let (Prefix(prefix), Op(op), ModRmIndex(modrm_index)) = this;
+        let ptr = ptr.0;
+        let mut buffer = Buffer::new();
+        buffer.write_u8(prefix);
+        if let Some(rex) = ptr.rex()? {
+            buffer.write_u8(rex);
+        }
+        buffer.write_u8(op);
+        Args::write(&mut buffer, ptr, modrm_index)?;
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
+impl<P> Encode<MI, (Word<P>, u8)> for (Prefix, Op, ModRmIndex, Imm8)
+    where P: Mem
+{
+    fn encode<E>(emitter: &mut E, (ptr, imm): (Word<P>, u8), this: Self)
+        -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        let (Prefix(prefix), Op(op), ModRmIndex(modrm_index), Imm8) = this;
+        let ptr = ptr.0;
+        let mut buffer = Buffer::new();
+        buffer.write_u8(prefix);
+        if let Some(rex) = ptr.rex()? {
+            buffer.write_u8(rex);
+        }
+        buffer.write_u8(op);
+        Args::write(&mut buffer, ptr, modrm_index)?;
+        buffer.write_u8(imm);
         emitter.write(&buffer)?;
         Ok(())
     }
@@ -1321,6 +1478,28 @@ impl<P> Encode<MI, (Word<P>, u16)> for (Prefix, Op, ModRmIndex, Imm16)
     }
 }
 
+impl<P> Encode<MC, (Word<P>, Reg8)> for (Prefix, Op, ModRmIndex)
+    where P: Mem
+{
+    fn encode<E>(emitter: &mut E, (ptr, cl): (Word<P>, Reg8), this: Self)
+        -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        debug_assert!(cl == Reg8::Cl);
+        let (Prefix(prefix), Op(op), ModRmIndex(modrm_index)) = this;
+        let ptr = ptr.0;
+        let mut buffer = Buffer::new();
+        buffer.write_u8(prefix);
+        if let Some(rex) = ptr.rex()? {
+            buffer.write_u8(rex);
+        }
+        buffer.write_u8(op);
+        Args::write(&mut buffer, ptr, modrm_index)?;
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
 impl<P> Encode<MR, (Word<P>, Reg16)> for (Prefix, Op, ModRm)
     where P: Mem
 {
@@ -1337,6 +1516,48 @@ impl<P> Encode<MR, (Word<P>, Reg16)> for (Prefix, Op, ModRm)
         }
         buffer.write_u8(op);
         Args::write(&mut buffer, ptr, reg.rm())?;
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
+impl<P> Encode<M1, (DWord<P>, u8)> for (Op, ModRmIndex)
+    where P: Mem
+{
+    fn encode<E>(emitter: &mut E, (ptr, imm): (DWord<P>, u8), this: Self)
+        -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        debug_assert!(imm == 1);
+        let (Op(op), ModRmIndex(modrm_index)) = this;
+        let ptr = ptr.0;
+        let mut buffer = Buffer::new();
+        if let Some(rex) = ptr.rex()? {
+            buffer.write_u8(rex);
+        }
+        buffer.write_u8(op);
+        Args::write(&mut buffer, ptr, modrm_index)?;
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
+impl<P> Encode<MI, (DWord<P>, u8)> for (Op, ModRmIndex, Imm8)
+    where P: Mem
+{
+    fn encode<E>(emitter: &mut E, (ptr, imm): (DWord<P>, u8), this: Self)
+        -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        let (Op(op), ModRmIndex(modrm_index), Imm8) = this;
+        let ptr = ptr.0;
+        let mut buffer = Buffer::new();
+        if let Some(rex) = ptr.rex()? {
+            buffer.write_u8(rex);
+        }
+        buffer.write_u8(op);
+        Args::write(&mut buffer, ptr, modrm_index)?;
+        buffer.write_u8(imm);
         emitter.write(&buffer)?;
         Ok(())
     }
@@ -1363,6 +1584,27 @@ impl<P> Encode<MI, (DWord<P>, u32)> for (Op, ModRmIndex, Imm32)
     }
 }
 
+impl<P> Encode<MC, (DWord<P>, Reg8)> for (Op, ModRmIndex)
+    where P: Mem
+{
+    fn encode<E>(emitter: &mut E, (ptr, cl): (DWord<P>, Reg8), this: Self)
+        -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        debug_assert!(cl == Reg8::Cl);
+        let (Op(op), ModRmIndex(modrm_index)) = this;
+        let ptr = ptr.0;
+        let mut buffer = Buffer::new();
+        if let Some(rex) = ptr.rex()? {
+            buffer.write_u8(rex);
+        }
+        buffer.write_u8(op);
+        Args::write(&mut buffer, ptr, modrm_index)?;
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
 impl<P> Encode<MR, (DWord<P>, Reg32)> for (Op, ModRm)
     where P: Mem
 {
@@ -1383,6 +1625,44 @@ impl<P> Encode<MR, (DWord<P>, Reg32)> for (Op, ModRm)
     }
 }
 
+impl<P> Encode<M1, (QWord<P>, u8)> for (RexW, Op, ModRmIndex)
+    where P: Mem
+{
+    fn encode<E>(emitter: &mut E, (ptr, imm): (QWord<P>, u8), this: Self)
+        -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        debug_assert!(imm == 1);
+        let (RexW, Op(op), ModRmIndex(modrm_index)) = this;
+        let ptr = ptr.0;
+        let mut buffer = Buffer::new();
+        buffer.write_u8(ptr.rexw()?);
+        buffer.write_u8(op);
+        Args::write(&mut buffer, ptr, modrm_index)?;
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
+impl<P> Encode<MI, (QWord<P>, u8)> for (RexW, Op, ModRmIndex, Imm8)
+    where P: Mem
+{
+    fn encode<E>(emitter: &mut E, (ptr, imm): (QWord<P>, u8), this: Self)
+        -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        let (RexW, Op(op), ModRmIndex(modrm_index), Imm8) = this;
+        let ptr = ptr.0;
+        let mut buffer = Buffer::new();
+        buffer.write_u8(ptr.rexw()?);
+        buffer.write_u8(op);
+        Args::write(&mut buffer, ptr, modrm_index)?;
+        buffer.write_u8(imm);
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
 impl<P> Encode<MI, (QWord<P>, u32)> for (RexW, Op, ModRmIndex, Imm32)
     where P: Mem
 {
@@ -1397,6 +1677,25 @@ impl<P> Encode<MI, (QWord<P>, u32)> for (RexW, Op, ModRmIndex, Imm32)
         buffer.write_u8(op);
         Args::write(&mut buffer, ptr, modrm_index)?;
         buffer.write_u32(imm);
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
+impl<P> Encode<MC, (QWord<P>, Reg8)> for (RexW, Op, ModRmIndex)
+    where P: Mem
+{
+    fn encode<E>(emitter: &mut E, (ptr, cl): (QWord<P>, Reg8), this: Self)
+        -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        debug_assert!(cl == Reg8::Cl);
+        let (RexW, Op(op), ModRmIndex(modrm_index)) = this;
+        let ptr = ptr.0;
+        let mut buffer = Buffer::new();
+        buffer.write_u8(ptr.rexw()?);
+        buffer.write_u8(op);
+        Args::write(&mut buffer, ptr, modrm_index)?;
         emitter.write(&buffer)?;
         Ok(())
     }
