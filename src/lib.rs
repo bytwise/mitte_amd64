@@ -135,7 +135,7 @@ macro_rules! forward {
     }
 }
 
-pub trait Emit: EmitBytes {
+pub trait Emit: EmitBytes + Sized {
     forward! {
         add(dst: D, src: S) => Add;
         or(dst: D, src: S) => Or;
