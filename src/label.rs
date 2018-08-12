@@ -170,16 +170,16 @@ mod tests {
     fn test() {
         let mut buffer = Vec::new();
 
-        buffer.add(byte_ptr(Rax), Al).unwrap();
+        buffer.emit_add(byte_ptr(Rax), Al).unwrap();
 
         {
             let mut l1 = Label::new();
             let mut l2 = Label::new();
-            buffer.jg(&mut l2).unwrap();
+            buffer.emit_jg(&mut l2).unwrap();
 
             buffer.bind_label(&mut l1).unwrap();
-            buffer.add(byte_ptr(Rax), Al).unwrap();
-            buffer.jg(&mut l1).unwrap();
+            buffer.emit_add(byte_ptr(Rax), Al).unwrap();
+            buffer.emit_jg(&mut l1).unwrap();
 
             buffer.bind_label(&mut l2).unwrap();
         }
@@ -187,11 +187,11 @@ mod tests {
         {
             let mut l1 = Label::new();
             let mut l2 = Label::new();
-            buffer.jg(&mut l2).unwrap();
+            buffer.emit_jg(&mut l2).unwrap();
 
             buffer.bind_label(&mut l1).unwrap();
-            buffer.add(byte_ptr(Rax), Al).unwrap();
-            buffer.jg(&mut l1).unwrap();
+            buffer.emit_add(byte_ptr(Rax), Al).unwrap();
+            buffer.emit_jg(&mut l1).unwrap();
 
             buffer.bind_label(&mut l2).unwrap();
         }

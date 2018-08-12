@@ -36,12 +36,12 @@ fn main() {
         };
 
         // function prologue
-        code.push(Rbp).unwrap();
-        code.mov(Rbp, Rsp).unwrap();
-        code.sub(Rsp, 32u8).unwrap();
+        code.emit_push(Rbp).unwrap();
+        code.emit_mov(Rbp, Rsp).unwrap();
+        code.emit_sub(Rsp, 32u8).unwrap();
 
         // `rax` will contain the data pointer
-        code.xor(Rax, Rax).unwrap();
+        code.emit_xor(Rax, Rax).unwrap();
 
         // `rcx` will be a pointer to the tape
         // `rdx` will be a pointer to the InOut struct
@@ -50,71 +50,71 @@ fn main() {
             match b {
                 b'>' => {
                     // use `ax` so that it wraps around after 0xffff to 0
-                    code.inc(Ax).unwrap();
+                    code.emit_inc(Ax).unwrap();
                 }
                 b'<' => {
                     // use `ax` so that it wraps around after 0 to 0xffff
-                    code.dec(Ax).unwrap();
+                    code.emit_dec(Ax).unwrap();
                 }
                 b'+' => {
-                    code.inc(word_ptr(Rcx + Rax * 2)).unwrap();
+                    code.emit_inc(word_ptr(Rcx + Rax * 2)).unwrap();
                 }
                 b'-' => {
-                    code.dec(word_ptr(Rcx + Rax * 2)).unwrap();
+                    code.emit_dec(word_ptr(Rcx + Rax * 2)).unwrap();
                 }
                 b'.' => {
                     // save `rax`, `rcx` and `rdx` on stack
-                    code.mov(qword_ptr(Rbp - 8), Rax).unwrap();
-                    code.mov(qword_ptr(Rbp - 16), Rcx).unwrap();
-                    code.mov(qword_ptr(Rbp - 24), Rdx).unwrap();
+                    code.emit_mov(qword_ptr(Rbp - 8), Rax).unwrap();
+                    code.emit_mov(qword_ptr(Rbp - 16), Rcx).unwrap();
+                    code.emit_mov(qword_ptr(Rbp - 24), Rdx).unwrap();
 
                     // set parameters and call `putchar`
-                    code.mov(Dx, word_ptr(Rcx + Rax * 2)).unwrap();
-                    code.mov(Rcx, qword_ptr(Rbp - 24)).unwrap();
-                    code.mov(Rax, putchar as u64).unwrap();
-                    code.call(Rax).unwrap();
+                    code.emit_mov(Dx, word_ptr(Rcx + Rax * 2)).unwrap();
+                    code.emit_mov(Rcx, qword_ptr(Rbp - 24)).unwrap();
+                    code.emit_mov(Rax, putchar as u64).unwrap();
+                    code.emit_call(Rax).unwrap();
 
                     // restore `rax`, `rcx` and `rdx` from stack
-                    code.mov(Rax, qword_ptr(Rbp - 8)).unwrap();
-                    code.mov(Rcx, qword_ptr(Rbp - 16)).unwrap();
-                    code.mov(Rdx, qword_ptr(Rbp - 24)).unwrap();
+                    code.emit_mov(Rax, qword_ptr(Rbp - 8)).unwrap();
+                    code.emit_mov(Rcx, qword_ptr(Rbp - 16)).unwrap();
+                    code.emit_mov(Rdx, qword_ptr(Rbp - 24)).unwrap();
                 }
                 b',' => {
                     // save `rax`, `rcx` and `rdx` on stack
-                    code.mov(qword_ptr(Rbp - 8), Rax).unwrap();
-                    code.mov(qword_ptr(Rbp - 16), Rcx).unwrap();
-                    code.mov(qword_ptr(Rbp - 24), Rdx).unwrap();
+                    code.emit_mov(qword_ptr(Rbp - 8), Rax).unwrap();
+                    code.emit_mov(qword_ptr(Rbp - 16), Rcx).unwrap();
+                    code.emit_mov(qword_ptr(Rbp - 24), Rdx).unwrap();
 
                     // set parameters and call `getchar`
-                    code.mov(Rcx, Rdx).unwrap();
-                    code.mov(Rax, getchar as u64).unwrap();
-                    code.call(Rax).unwrap();
-                    code.movzx(Dx, Al).unwrap();
+                    code.emit_mov(Rcx, Rdx).unwrap();
+                    code.emit_mov(Rax, getchar as u64).unwrap();
+                    code.emit_call(Rax).unwrap();
+                    code.emit_movzx(Dx, Al).unwrap();
 
                     // restore `rax` and `rcx` from stack
-                    code.mov(Rax, qword_ptr(Rbp - 8)).unwrap();
-                    code.mov(Rcx, qword_ptr(Rbp - 16)).unwrap();
+                    code.emit_mov(Rax, qword_ptr(Rbp - 8)).unwrap();
+                    code.emit_mov(Rcx, qword_ptr(Rbp - 16)).unwrap();
 
                     // save return value on tape
-                    code.mov(word_ptr(Rcx + Rax * 2), Dx).unwrap();
+                    code.emit_mov(word_ptr(Rcx + Rax * 2), Dx).unwrap();
 
                     // restore `rdx` from stack
-                    code.mov(Rdx, qword_ptr(Rbp - 24)).unwrap();
+                    code.emit_mov(Rdx, qword_ptr(Rbp - 24)).unwrap();
                 }
                 b'[' => {
                     let mut start_label = Label::new();
                     let mut end_label = Label::new();
 
-                    code.cmp(word_ptr(Rcx + Rax * 2), 0).unwrap();
-                    code.jz(&mut end_label).unwrap();
+                    code.emit_cmp(word_ptr(Rcx + Rax * 2), 0).unwrap();
+                    code.emit_jz(&mut end_label).unwrap();
                     code.bind_label(&mut start_label).unwrap();
 
                     brackets.push((start_label, end_label));
                 }
                 b']' => {
                     let (mut start_label, mut end_label) = brackets.pop().unwrap();
-                    code.cmp(word_ptr(Rcx + Rax * 2), 0).unwrap();
-                    code.jnz(&mut start_label).unwrap();
+                    code.emit_cmp(word_ptr(Rcx + Rax * 2), 0).unwrap();
+                    code.emit_jnz(&mut start_label).unwrap();
                     code.bind_label(&mut end_label).unwrap();
                 }
                 _ => {}
@@ -122,9 +122,9 @@ fn main() {
         }
 
         // function epilogue
-        code.add(Rsp, 32u8).unwrap();
-        code.pop(Rbp).unwrap();
-        code.ret().unwrap();
+        code.emit_add(Rsp, 32u8).unwrap();
+        code.emit_pop(Rbp).unwrap();
+        code.emit_ret().unwrap();
     }
 
     code_map.set_protection(Protection::ReadExecute).unwrap();
