@@ -2466,6 +2466,7 @@ fn test_pop() {
 
 #[test]
 fn test_call() {
+    test_off32("call", Emit::call);
     test_reg64("call", Emit::call);
 }
 
@@ -2473,6 +2474,7 @@ fn test_call() {
 fn test_jmp() {
     test_off8("jmp", Emit::jmp);
     test_off32("jmp", Emit::jmp);
+    test_reg64("jmp", Emit::jmp);
 }
 
 #[test]

@@ -714,6 +714,7 @@ impl<W> Call<Operand> for W where W: EmitBytes {
     fn write(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
+            Offset32(a) => Call::write(self, a),
             Reg64(a) => Call::write(self, a),
             _ => Err(Error::InvalidOperands),
         }
@@ -721,6 +722,7 @@ impl<W> Call<Operand> for W where W: EmitBytes {
 }
 
 op! { Call {
+    r: i32 => (D) Op(0xe8), Imm32;
     r: Reg64 => (M) Op(0xff), ModRmIndex(2);
 }}
 
@@ -737,6 +739,7 @@ impl<W> Jmp<Operand> for W where W: EmitBytes {
         match arg {
             Offset8(a) => Jmp::write(self, a),
             Offset32(a) => Jmp::write(self, a),
+            Reg64(a) => Jmp::write(self, a),
             _ => Err(Error::InvalidOperands),
         }
     }
@@ -762,6 +765,7 @@ impl<W> Jmp<HoleKind> for W where W: EmitBytes {
 op! { Jmp => () {
     imm: i8  => (D) Op(0xeb), Imm8;
     imm: i32 => (D) Op(0xe9), Imm32;
+    r: Reg64 => (M) Op(0xff), ModRmIndex(4);
 }}
 
 
