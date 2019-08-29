@@ -53,6 +53,19 @@ impl Encode<None, ()> for Op {
     }
 }
 
+impl Encode<None, ()> for (Op, Op) {
+    fn encode<E>(emitter: &mut E, _: (), this: Self) -> Result<(), Error<E::Error>>
+        where E: EmitBytes
+    {
+        let (Op(op1), Op(op2)) = this;
+        let mut buffer = Buffer::new();
+        buffer.write_u8(op1);
+        buffer.write_u8(op2);
+        emitter.write(&buffer)?;
+        Ok(())
+    }
+}
+
 impl Encode<I, u8> for (Op, Imm8) {
     fn encode<E>(emitter: &mut E, imm: u8, this: Self) -> Result<(), Error<E::Error>>
         where E: EmitBytes

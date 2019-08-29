@@ -263,6 +263,8 @@ pub trait Emit: EmitBytes + Sized {
 
         emit_cdq() => Cdq;
         emit_xchg(dst: D, src: S) => Xchg;
+
+        emit_ud2() => Ud2;
     }
 }
 

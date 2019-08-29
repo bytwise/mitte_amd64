@@ -1082,3 +1082,12 @@ op! { Xchg {
     <P: Mem> p: DWord<P>, r: Reg32 => (MR)               Op(0x87), ModRm;
     <P: Mem> p: QWord<P>, r: Reg64 => (MR) RexW,         Op(0x87), ModRm;
 }}
+
+
+pub trait Ud2: EmitBytes {
+    fn emit(&mut self) -> Result<(), Error<Self::Error>>;
+}
+
+op! { Ud2 {
+    => (None) Op(0x0f), Op(0x0b);
+}}

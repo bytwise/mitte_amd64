@@ -2681,3 +2681,8 @@ fn test_xchg() {
         test_disasm(mnemonic, &expected_disasm, &code);
     }
 }
+
+#[test]
+fn test_ud2() {
+    test_unit("ud2", Emit::emit_ud2);
+}
