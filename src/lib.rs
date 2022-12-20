@@ -1,3 +1,4 @@
+extern crate arrayvec;
 extern crate byteorder;
 
 use std::io::{Write, Cursor};
