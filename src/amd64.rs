@@ -751,11 +751,11 @@ impl<W> Jmp<HoleKind> for W where W: EmitBytes {
         use fixup::HoleKind::*;
         match arg {
             Rel8 => {
-                try!(self.write(&[0xebu8, -2i8 as u8]));
+                self.write(&[0xebu8, -2i8 as u8])?;
                 Ok(Hole::rel8(self.pos() - 1))
             }
             Rel32 => {
-                try!(self.write(&[0xe9u8, -5i8 as u8, 0u8, 0u8, 0u8]));
+                self.write(&[0xe9u8, -5i8 as u8, 0u8, 0u8, 0u8])?;
                 Ok(Hole::rel32(self.pos() - 4))
             }
         }
@@ -837,12 +837,12 @@ macro_rules! cc_op {
                 use fixup::HoleKind::*;
                 match arg {
                     Rel8 => {
-                        try!(self.write(&[0x70u8 | cond::$cond.0, -2i8 as u8]));
+                        self.write(&[0x70u8 | cond::$cond.0, -2i8 as u8])?;
                         Ok(Hole::rel8(self.pos() - 1))
                     }
                     Rel32 => {
-                        try!(self.write(&[0x0fu8, 0x80u8 | cond::$cond.0,
-                                          -6i8 as u8, 0u8, 0u8, 0u8]));
+                        self.write(&[0x0fu8, 0x80u8 | cond::$cond.0,
+                                     -6i8 as u8, 0u8, 0u8, 0u8])?;
                         Ok(Hole::rel32(self.pos() - 4))
                     }
                 }

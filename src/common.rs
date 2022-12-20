@@ -86,8 +86,8 @@ pub fn rex_rx<R, X>(r: R, x: X) -> Result<Option<u8>, Error<NoError>>
         return Ok(None);
     }
 
-    try!(r.check_is_rex_compatible());
-    try!(x.check_is_rex_compatible());
+    r.check_is_rex_compatible()?;
+    x.check_is_rex_compatible()?;
 
     let rex = 0x40
         | ((r.is_64bit() | x.is_64bit()) as u8) << 3
@@ -104,8 +104,8 @@ pub fn rex_rb<R, B>(r: R, b: B) -> Result<Option<u8>, Error<NoError>>
         return Ok(None);
     }
 
-    try!(r.check_is_rex_compatible());
-    try!(b.check_is_rex_compatible());
+    r.check_is_rex_compatible()?;
+    b.check_is_rex_compatible()?;
 
     let rex = 0x40
         | ((r.is_64bit() | b.is_64bit()) as u8) << 3
@@ -122,8 +122,8 @@ pub fn rex_xb<X, B>(x: X, b: B) -> Result<Option<u8>, Error<NoError>>
         return Ok(None);
     }
 
-    try!(x.check_is_rex_compatible());
-    try!(b.check_is_rex_compatible());
+    x.check_is_rex_compatible()?;
+    b.check_is_rex_compatible()?;
 
     let rex = 0x40
         | ((x.is_64bit() | b.is_64bit()) as u8) << 3
@@ -140,9 +140,9 @@ pub fn rex_rxb<R, X, B>(r: R, x: X, b: B) -> Result<Option<u8>, Error<NoError>>
         return Ok(None);
     }
 
-    try!(r.check_is_rex_compatible());
-    try!(x.check_is_rex_compatible());
-    try!(b.check_is_rex_compatible());
+    r.check_is_rex_compatible()?;
+    x.check_is_rex_compatible()?;
+    b.check_is_rex_compatible()?;
 
     let rex = 0x40
         | ((r.is_64bit() | x.is_64bit() | b.is_64bit()) as u8) << 3

@@ -68,12 +68,12 @@ impl<W> EmitBytes for Cursor<W> where Cursor<W>: Write, W: AsRef<[u8]> {
         match fixup {
             Fixup::Rel8(addr, offset) => {
                 self.set_position(addr);
-                try!(self.write_u8(offset as u8));
+                self.write_u8(offset as u8)?;
                 self.set_position(end);
             }
             Fixup::Rel32(addr, offset) => {
                 self.set_position(addr);
-                try!(self.write_u32::<LittleEndian>(offset as u32));
+                self.write_u32::<LittleEndian>(offset as u32)?;
                 self.set_position(end);
             }
         }

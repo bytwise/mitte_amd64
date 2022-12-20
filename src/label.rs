@@ -50,7 +50,7 @@ impl<W> BindLabel for W where W: EmitBytes {
         for hole in label.unresolved_locs.drain(..) {
             let offset = pos as i64 - (hole.addr as i64 + 4);
 
-            try!(self.fixup(Fixup::Rel32(hole.addr, offset as i32)));
+            self.fixup(Fixup::Rel32(hole.addr, offset as i32))?;
         }
 
         label.address = Some(pos);
@@ -83,12 +83,11 @@ impl<'a, W> Jmp<&'a mut Label> for W where W: EmitBytes {
             let offset = addr as isize - (self.pos() as isize + 5);
 
             match offset {
-                -0x8000_0000...0x7fff_ffff => try!(Jmp::emit(self, offset as i32)),
-                _ => return Err(Error::LabelTooFarAway),
+                -0x8000_0000..=0x7fff_ffff => Jmp::emit(self, offset as i32),
+                _ => Err(Error::LabelTooFarAway),
             }
-            Ok(())
         } else {
-            let hole = try!(Jmp::emit(self, HoleKind::Rel32));
+            let hole = Jmp::emit(self, HoleKind::Rel32)?;
             label.unresolved_locs.push(hole);
             Ok(())
         }
@@ -106,14 +105,11 @@ macro_rules! jcc {
                         let offset = addr as isize - (self.pos() as isize + 6);
 
                         match offset {
-                            -0x8000_0000...0x7fff_ffff => {
-                                try!($J::emit(self, offset as i32))
-                            }
-                            _ => return Err(Error::LabelTooFarAway),
+                            -0x8000_0000..=0x7fff_ffff => $J::emit(self, offset as i32),
+                            _ => Err(Error::LabelTooFarAway),
                         }
-                        Ok(())
                     } else {
-                        let hole = try!($J::emit(self, HoleKind::Rel32));
+                        let hole = $J::emit(self, HoleKind::Rel32)?;
                         label.unresolved_locs.push(hole);
                         Ok(())
                     }

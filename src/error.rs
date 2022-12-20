@@ -36,20 +36,9 @@ impl<E> fmt::Display for Error<E>
 }
 
 impl<E> error::Error for Error<E>
-    where E: error::Error
+    where E: error::Error + 'static
 {
-    fn description(&self) -> &str {
-        match *self {
-            Error::InvalidOperands => "invalid operands",
-            Error::RexIncompatibleRegister(..) => "register is incompatible with REX prefix",
-            Error::InvalidIndexRegister(..) => "register can't be used as index",
-            Error::RedefinedLabel => "can't bind label twice",
-            Error::LabelTooFarAway => "label is too far away",
-            Error::Custom(ref error) => error.description(),
-        }
-    }
-
-    fn cause(&self) -> Option<&error::Error> {
+    fn source(&self) -> Option<&(dyn error::Error + 'static)> {
         match *self {
             Error::Custom(ref error) => Some(error),
             _ => None
