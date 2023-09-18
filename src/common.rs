@@ -17,8 +17,6 @@ impl<E> From<Error<NoError>> for Error<E>
             Error::InvalidOperands => Error::InvalidOperands,
             Error::RexIncompatibleRegister(reg) => Error::RexIncompatibleRegister(reg),
             Error::InvalidIndexRegister(reg) => Error::InvalidIndexRegister(reg),
-            Error::RedefinedLabel => Error::RedefinedLabel,
-            Error::LabelTooFarAway => Error::LabelTooFarAway,
             Error::Custom(e) => match e {},
         }
     }

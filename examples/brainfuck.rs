@@ -1,3 +1,4 @@
+extern crate mitte_core;
 extern crate mitte_amd64;
 extern crate memmap;
 
@@ -5,10 +6,11 @@ use std::fs::File;
 use std::io::{self, Read, Write, Cursor, Stdin, Stdout};
 use std::mem;
 
-use mitte_amd64::Emit;
+use mitte_core::Emit;
+use mitte_core::label::OptionLabel;
+use mitte_amd64::Emit as Amd64Emit;
 use mitte_amd64::reg::*;
 use mitte_amd64::{word_ptr, qword_ptr};
-use mitte_amd64::label::{BindLabel, Label};
 
 use memmap::{Mmap, Protection};
 
@@ -102,8 +104,8 @@ fn main() {
                     code.emit_mov(Rdx, qword_ptr(Rbp - 24)).unwrap();
                 }
                 b'[' => {
-                    let mut start_label = Label::new();
-                    let mut end_label = Label::new();
+                    let mut start_label = OptionLabel::new();
+                    let mut end_label = OptionLabel::new();
 
                     code.emit_cmp(word_ptr(Rcx + Rax * 2), 0).unwrap();
                     code.emit_jz(&mut end_label).unwrap();

@@ -1,9 +1,10 @@
-use mitte_core::EmitSlice;
+use mitte_core::{EmitSlice, Emit, Label};
 
 use reg::{Reg8, Reg16, Reg32, Reg64};
 use ptr::{Mem, Byte, Word, DWord, QWord};
 use operand::Operand;
 use error::Error;
+use fixup::FixupKind;
 use encode::Encode;
 use encode::{None, D, I, M, O, M1, MI, MC, MR, RM, OI, XchgSrc, XchgDst};
 use encode::{Prefix, RexW, Op, OpPlusReg, ModRm, ModRmIndex, Imm8, Imm16, Imm32, Imm64};
@@ -761,6 +762,20 @@ impl<W> Jmp<i32> for W where W: EmitSlice {
     }
 }
 
+impl<W, L> Jmp<&mut L> for W
+    where W: Emit, L: Label<W, FixupKind>
+{
+    fn emit(&mut self, label: &mut L) -> Result<(), Error<Self::Error>> {
+        self.emit_branch(
+            label,
+            FixupKind::PcRel32,
+            |emit, offset| {
+                Jmp::emit(emit, offset as i32)
+            },
+        )
+    }
+}
+
 op! { Jmp {
     r: Reg64 => (M) Op(0xff), ModRmIndex(4);
 }}
@@ -835,6 +850,20 @@ macro_rules! cc_op {
         impl<W> $J<i32> for W where W: EmitSlice {
             fn emit(&mut self, imm: i32) -> Result<(), Error<Self::Error>> {
                 Encode::<D, _>::encode(self, imm - 6, (Op(0x0f), Op(0x80 | cond::$cond.0), Imm32))
+            }
+        }
+
+        impl<W, L> $J<&mut L> for W
+            where W: Emit, L: Label<W, FixupKind>
+        {
+            fn emit(&mut self, label: &mut L) -> Result<(), Error<Self::Error>> {
+                self.emit_branch(
+                    label,
+                    FixupKind::PcRel32,
+                    |emit, offset| {
+                        $J::emit(emit, offset as i32)
+                    },
+                )
             }
         }
 

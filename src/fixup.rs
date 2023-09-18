@@ -1,40 +1,29 @@
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum HoleKind {
-    Rel8,
-    Rel32,
+use std::ops::Range;
+
+use mitte_core::Error;
+
+
+pub enum FixupKind {
+    PcRel8,
+    PcRel32,
 }
 
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub struct Hole {
-    pub addr: u64,
-    pub kind: HoleKind,
-}
-
-impl Hole {
+impl<Emit> mitte_core::FixupKind<Emit> for FixupKind
+    where Emit: mitte_core::Emit
+{
     #[inline]
-    pub fn rel8(addr: u64) -> Hole {
-        Hole { addr: addr, kind: HoleKind::Rel8 }
-    }
-
-    #[inline]
-    pub fn rel32(addr: u64) -> Hole {
-        Hole { addr: addr, kind: HoleKind::Rel32 }
-    }
-}
-
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
-pub enum Fixup {
-    Rel8(u64, i8),
-    Rel32(u64, i32),
-}
-
-impl Fixup {
-    #[inline]
-    pub fn addr(&self) -> u64 {
+    fn apply_fixup(&self, emit: &mut Emit, range: Range<u64>, offset: i64) -> Result<(), Error> {
+        let offset = offset - (range.end - range.start) as i64;
         match *self {
-            Fixup::Rel8(addr, _) | Fixup::Rel32(addr, _) => addr,
+            FixupKind::PcRel8 => {
+                let buffer = emit.get_mut_array::<1>(range.end - 1)?;
+                buffer.copy_from_slice(&(offset as i8).to_le_bytes());
+            }
+            FixupKind::PcRel32 => {
+                let buffer = emit.get_mut_array::<4>(range.end - 4)?;
+                buffer.copy_from_slice(&(offset as i32).to_le_bytes());
+            }
         }
+        Ok(())
     }
 }

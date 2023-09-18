@@ -13,8 +13,6 @@ pub enum Error<E> {
     InvalidOperands,
     RexIncompatibleRegister(Reg8),
     InvalidIndexRegister(Reg64),
-    RedefinedLabel,
-    LabelTooFarAway,
     Custom(E),
 }
 
@@ -28,8 +26,6 @@ impl<E> fmt::Display for Error<E>
                 write!(fmt, "register {:?} is incompatible with REX prefix", reg),
             Error::InvalidIndexRegister(reg) =>
                 write!(fmt, "register {:?} can't be used as index", reg),
-            Error::RedefinedLabel => write!(fmt, "can't bind label twice"),
-            Error::LabelTooFarAway => write!(fmt, "label is too far away"),
             Error::Custom(ref error) => error.fmt(fmt),
         }
     }

@@ -15,7 +15,6 @@ pub mod reg;
 pub mod operand;
 pub mod error;
 pub mod fixup;
-pub mod label;
 
 pub mod amd64;
 
@@ -25,7 +24,6 @@ pub use ptr::{byte_pointer, word_pointer, dword_pointer, qword_pointer};
 pub use ptr::{Ptr, Pointer};
 pub use operand::Operand;
 pub use error::Error;
-pub use fixup::Fixup;
 
 
 macro_rules! forward {
