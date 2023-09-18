@@ -1,8 +1,7 @@
+extern crate mitte_core;
 extern crate arrayvec;
-extern crate byteorder;
 
-use std::io::{Write, Cursor};
-use byteorder::{WriteBytesExt, LittleEndian};
+use mitte_core::EmitSlice;
 use amd64::*;
 
 mod buffer;
@@ -29,88 +28,6 @@ pub use error::Error;
 pub use fixup::Fixup;
 
 
-pub trait EmitBytes {
-    type Error: std::error::Error;
-    fn pos(&self) -> u64;
-    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error>;
-    fn fixup(&mut self, fixup: Fixup) -> Result<(), Self::Error>;
-}
-
-impl<'a, W> EmitBytes for &'a mut W where W: EmitBytes {
-    type Error = W::Error;
-
-    fn pos(&self) -> u64 {
-        EmitBytes::pos(*self)
-    }
-
-    fn write(&mut self, buf: &[u8]) -> std::result::Result<(), Self::Error> {
-        EmitBytes::write(*self, buf)
-    }
-
-    fn fixup(&mut self, fixup: Fixup) -> std::result::Result<(), Self::Error> {
-        EmitBytes::fixup(*self, fixup)
-    }
-}
-
-impl<W> EmitBytes for Cursor<W> where Cursor<W>: Write, W: AsRef<[u8]> {
-    type Error = std::io::Error;
-
-    fn pos(&self) -> u64 {
-        self.position()
-    }
-
-    fn write(&mut self, buf: &[u8]) -> std::result::Result<(), Self::Error> {
-        self.write_all(buf)
-    }
-
-    fn fixup(&mut self, fixup: Fixup) -> std::result::Result<(), Self::Error> {
-        let end = self.position();
-        match fixup {
-            Fixup::Rel8(addr, offset) => {
-                self.set_position(addr);
-                self.write_u8(offset as u8)?;
-                self.set_position(end);
-            }
-            Fixup::Rel32(addr, offset) => {
-                self.set_position(addr);
-                self.write_u32::<LittleEndian>(offset as u32)?;
-                self.set_position(end);
-            }
-        }
-        Ok(())
-    }
-}
-
-impl EmitBytes for Vec<u8> {
-    type Error = std::io::Error;
-
-    #[inline]
-    fn pos(&self) -> u64 {
-        self.len() as u64
-    }
-
-    #[inline]
-    fn write(&mut self, buf: &[u8]) -> Result<(), Self::Error> {
-        self.extend_from_slice(buf);
-        Ok(())
-    }
-
-    #[inline]
-    fn fixup(&mut self, fixup: Fixup) -> Result<(), Self::Error> {
-        match fixup {
-            Fixup::Rel8(addr, offset) => {
-                let mut slice = &mut self[addr as usize..];
-                slice.write_u8(offset as u8)
-            }
-            Fixup::Rel32(addr, offset) => {
-                let mut slice = &mut self[addr as usize..];
-                slice.write_u32::<LittleEndian>(offset as u32)
-            }
-        }
-    }
-}
-
-
 macro_rules! forward {
     ($( $f:ident ($($arg:ident : $T:ident),*) => $Trait:ident; )*) => {
         $(
@@ -123,7 +40,7 @@ macro_rules! forward {
     }
 }
 
-pub trait Emit: EmitBytes + Sized {
+pub trait Emit: EmitSlice {
     forward! {
         emit_add(dst: D, src: S) => Add;
         emit_or(dst: D, src: S) => Or;
@@ -256,4 +173,4 @@ pub trait Emit: EmitBytes + Sized {
     }
 }
 
-impl<W> Emit for W where W: EmitBytes {}
+impl<W> Emit for W where W: EmitSlice {}

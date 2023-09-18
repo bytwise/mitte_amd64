@@ -8,8 +8,8 @@ keywords = ["emitter", "assembler", "amd64", "x86_64"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
+mitte_core = { git = "https://github.com/bytwise/mitte_core", rev = "09e54d1" }
 arrayvec = "0.7"
-byteorder = "1.0"
 
 [dev-dependencies]
 capstone = "0.2.0"

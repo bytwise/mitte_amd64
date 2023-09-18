@@ -9,7 +9,7 @@ use capstone::Capstone;
 use capstone::arch::BuildsCapstone;
 use capstone::arch::x86::ArchMode;
 
-type Result<T> = std::result::Result<T, Error<std::io::Error>>;
+type Result<T> = std::result::Result<T, Error<std::convert::Infallible>>;
 
 
 const REGS8: [(Reg8, &'static str); 20] = [

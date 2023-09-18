@@ -1,4 +1,5 @@
-use EmitBytes;
+use mitte_core::EmitSlice;
+
 use reg::{Reg8, Reg16, Reg32, Reg64};
 use ptr::{Mem, Byte, Word, DWord, QWord};
 use operand::Operand;
@@ -182,11 +183,11 @@ mod cond {
 macro_rules! binary_arith_op {
     ($(($Op:ident, $op:ident)),*) => {
         $(
-        pub trait $Op<D, S>: EmitBytes {
+        pub trait $Op<D, S>: EmitSlice {
             fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
         }
 
-        impl<W> $Op<Operand, Operand> for W where W: EmitBytes {
+        impl<W> $Op<Operand, Operand> for W where W: EmitSlice {
             fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match (dst, src) {
@@ -288,11 +289,11 @@ binary_arith_op! {
 macro_rules! shift_op {
     ($(($Op:ident, $op:ident)),*) => {
         $(
-        pub trait $Op<D, S>: EmitBytes {
+        pub trait $Op<D, S>: EmitSlice {
             fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
         }
 
-        impl<W> $Op<Operand, Operand> for W where W: EmitBytes {
+        impl<W> $Op<Operand, Operand> for W where W: EmitSlice {
             fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match (dst, src) {
@@ -404,11 +405,11 @@ shift_op! {
 macro_rules! unary_arith_op {
     ($( ($Op:ident, $index:expr) ),*) => {
         $(
-            pub trait $Op<T>: EmitBytes {
+            pub trait $Op<T>: EmitSlice {
                 fn emit(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
             }
 
-            impl<W> $Op<Operand> for W where W: EmitBytes {
+            impl<W> $Op<Operand> for W where W: EmitSlice {
                 fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
                     use operand::Operand::*;
                     match arg {
@@ -445,11 +446,11 @@ unary_arith_op! {
 }
 
 
-pub trait Inc<T>: EmitBytes {
+pub trait Inc<T>: EmitSlice {
     fn emit(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Inc<Operand> for W where W: EmitBytes {
+impl<W> Inc<Operand> for W where W: EmitSlice {
     fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
@@ -479,11 +480,11 @@ op! { Inc {
 }}
 
 
-pub trait Dec<T>: EmitBytes {
+pub trait Dec<T>: EmitSlice {
     fn emit(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Dec<Operand> for W where W: EmitBytes {
+impl<W> Dec<Operand> for W where W: EmitSlice {
     fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
@@ -513,11 +514,11 @@ op! { Dec {
 }}
 
 
-pub trait Test<D, S>: EmitBytes {
+pub trait Test<D, S>: EmitSlice {
     fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Test<Operand, Operand> for W where W: EmitBytes {
+impl<W> Test<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
@@ -585,11 +586,11 @@ op! { Test {
 }}
 
 
-pub trait Mov<D, S>: EmitBytes {
+pub trait Mov<D, S>: EmitSlice {
     fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Mov<Operand, Operand> for W where W: EmitBytes {
+impl<W> Mov<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
@@ -648,11 +649,11 @@ op! { Mov {
 }}
 
 
-pub trait Push<S>: EmitBytes {
+pub trait Push<S>: EmitSlice {
     fn emit(&mut self, src: S) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Push<Operand> for W where W: EmitBytes {
+impl<W> Push<Operand> for W where W: EmitSlice {
     fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
@@ -680,11 +681,11 @@ op! { Push {
 }}
 
 
-pub trait Pop<D>: EmitBytes {
+pub trait Pop<D>: EmitSlice {
     fn emit(&mut self, dst: D) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Pop<Operand> for W where W: EmitBytes {
+impl<W> Pop<Operand> for W where W: EmitSlice {
     fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
@@ -706,11 +707,11 @@ op! { Pop {
 }}
 
 
-pub trait Call<T>: EmitBytes {
+pub trait Call<T>: EmitSlice {
     fn emit(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Call<Operand> for W where W: EmitBytes {
+impl<W> Call<Operand> for W where W: EmitSlice {
     fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
@@ -721,7 +722,7 @@ impl<W> Call<Operand> for W where W: EmitBytes {
     }
 }
 
-impl<W> Call<i32> for W where W: EmitBytes {
+impl<W> Call<i32> for W where W: EmitSlice {
     fn emit(&mut self, imm: i32) -> Result<(), Error<Self::Error>> {
         Encode::<D, _>::encode(self, imm - 5, (Op(0xe8), Imm32))
     }
@@ -732,11 +733,11 @@ op! { Call {
 }}
 
 
-pub trait Jmp<T>: EmitBytes {
+pub trait Jmp<T>: EmitSlice {
     fn emit(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Jmp<Operand> for W where W: EmitBytes {
+impl<W> Jmp<Operand> for W where W: EmitSlice {
     fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match arg {
@@ -748,13 +749,13 @@ impl<W> Jmp<Operand> for W where W: EmitBytes {
     }
 }
 
-impl<W> Jmp<i8> for W where W: EmitBytes {
+impl<W> Jmp<i8> for W where W: EmitSlice {
     fn emit(&mut self, imm: i8) -> Result<(), Error<Self::Error>> {
         Encode::<D, _>::encode(self, imm - 2, (Op(0xeb), Imm8))
     }
 }
 
-impl<W> Jmp<i32> for W where W: EmitBytes {
+impl<W> Jmp<i32> for W where W: EmitSlice {
     fn emit(&mut self, imm: i32) -> Result<(), Error<Self::Error>> {
         Encode::<D, _>::encode(self, imm - 5, (Op(0xe9), Imm32))
     }
@@ -765,7 +766,7 @@ op! { Jmp {
 }}
 
 
-pub trait Ret: EmitBytes {
+pub trait Ret: EmitSlice {
     fn emit(&mut self) -> Result<(), Error<Self::Error>>;
 }
 
@@ -777,11 +778,11 @@ op! { Ret {
 macro_rules! cc_op {
     ($( ($cond:ident, $Cmov:ident, $J:ident, $Set:ident) ),*) => {
         $(
-        pub trait $Cmov<D, S>: EmitBytes {
+        pub trait $Cmov<D, S>: EmitSlice {
             fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
         }
 
-        impl<W> $Cmov<Operand, Operand> for W where W: EmitBytes {
+        impl<W> $Cmov<Operand, Operand> for W where W: EmitSlice {
             fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match (dst, src) {
@@ -810,11 +811,11 @@ macro_rules! cc_op {
         }}
 
 
-        pub trait $J<T>: EmitBytes {
+        pub trait $J<T>: EmitSlice {
             fn emit(&mut self, arg: T) -> Result<(), Error<Self::Error>>;
         }
 
-        impl<W> $J<Operand> for W where W: EmitBytes {
+        impl<W> $J<Operand> for W where W: EmitSlice {
             fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match arg {
@@ -825,24 +826,24 @@ macro_rules! cc_op {
             }
         }
 
-        impl<W> $J<i8> for W where W: EmitBytes {
+        impl<W> $J<i8> for W where W: EmitSlice {
             fn emit(&mut self, imm: i8) -> Result<(), Error<Self::Error>> {
                 Encode::<D, _>::encode(self, imm - 2, (Op(0x70 | cond::$cond.0), Imm8))
             }
         }
 
-        impl<W> $J<i32> for W where W: EmitBytes {
+        impl<W> $J<i32> for W where W: EmitSlice {
             fn emit(&mut self, imm: i32) -> Result<(), Error<Self::Error>> {
                 Encode::<D, _>::encode(self, imm - 6, (Op(0x0f), Op(0x80 | cond::$cond.0), Imm32))
             }
         }
 
 
-        pub trait $Set<D>: EmitBytes {
+        pub trait $Set<D>: EmitSlice {
             fn emit(&mut self, dst: D) -> Result<(), Error<Self::Error>>;
         }
 
-        impl<W> $Set<Operand> for W where W: EmitBytes {
+        impl<W> $Set<Operand> for W where W: EmitSlice {
             fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
                 use operand::Operand::*;
                 match arg {
@@ -895,11 +896,11 @@ cc_op! {
 }
 
 
-pub trait Lea<D, S>: EmitBytes {
+pub trait Lea<D, S>: EmitSlice {
     fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Lea<Operand, Operand> for W where W: EmitBytes {
+impl<W> Lea<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
@@ -918,11 +919,11 @@ op! { Lea {
 }}
 
 
-pub trait Movzx<D, S>: EmitBytes {
+pub trait Movzx<D, S>: EmitSlice {
     fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Movzx<Operand, Operand> for W where W: EmitBytes {
+impl<W> Movzx<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
@@ -956,11 +957,11 @@ op! { Movzx {
 }}
 
 
-pub trait Movsx<D, S>: EmitBytes {
+pub trait Movsx<D, S>: EmitSlice {
     fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Movsx<Operand, Operand> for W where W: EmitBytes {
+impl<W> Movsx<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
@@ -994,7 +995,7 @@ op! { Movsx {
 }}
 
 
-pub trait Cdq: EmitBytes {
+pub trait Cdq: EmitSlice {
     fn emit(&mut self) -> Result<(), Error<Self::Error>>;
 }
 
@@ -1003,11 +1004,11 @@ op! { Cdq {
 }}
 
 
-pub trait Xchg<D, S>: EmitBytes {
+pub trait Xchg<D, S>: EmitSlice {
     fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> Xchg<Operand, Operand> for W where W: EmitBytes {
+impl<W> Xchg<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
         use operand::Operand::*;
         match (dst, src) {
@@ -1067,7 +1068,7 @@ op! { Xchg {
 }}
 
 
-pub trait Ud2: EmitBytes {
+pub trait Ud2: EmitSlice {
     fn emit(&mut self) -> Result<(), Error<Self::Error>>;
 }
 

@@ -13,7 +13,7 @@ macro_rules! op {
         }
     ) => {
         impl<W $($(, $A)*)*> $Trait<$($T),*> for W
-            where W: ::EmitBytes $($(, $A : $bound)*)*
+            where W: mitte_core::EmitSlice $($(, $A : $bound)*)*
         {
             fn emit(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
@@ -39,7 +39,7 @@ macro_rules! op {
         }
     ) => {
         impl<W $($(, $A)*)*> $Trait<$($T),*> for W
-            where W: ::EmitBytes $($(, $A : $bound)*)*
+            where W: mitte_core::EmitSlice $($(, $A : $bound)*)*
         {
             fn emit(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
@@ -68,7 +68,7 @@ macro_rules! op {
             $($rest:tt)*
         }
     ) => {
-        impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
+        impl<W> $Trait<$($T),*> for W where W: mitte_core::EmitSlice {
             fn emit(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
             {
@@ -94,7 +94,7 @@ macro_rules! op {
         }
     ) => {
         impl<W $($(, $A)*)*> $Trait<$($T),*> for W
-            where W: ::EmitBytes $($(, $A : $bound)*)*
+            where W: mitte_core::EmitSlice $($(, $A : $bound)*)*
         {
             fn emit(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<(), ::error::Error<W::Error>>
@@ -113,7 +113,7 @@ macro_rules! op {
             $($rest:tt)*
         }
     ) => {
-        impl<W> $Trait<$($T),*> for W where W: ::EmitBytes {
+        impl<W> $Trait<$($T),*> for W where W: mitte_core::EmitSlice {
             type Return = $R;
             fn emit(&mut self, $($arg: $T),*)
                 -> ::std::result::Result<$R, ::error::Error<W::Error>>

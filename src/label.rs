@@ -1,6 +1,7 @@
-use EmitBytes;
+use mitte_core::{EmitSlice, Emit};
+
 use error::Error;
-use fixup::{HoleKind, Hole, Fixup};
+use fixup::{HoleKind, Hole};
 use amd64::Jmp;
 use amd64::{
     Ja,
@@ -36,21 +37,25 @@ use amd64::{
 };
 
 
-pub trait BindLabel: EmitBytes {
+pub trait BindLabel: EmitSlice {
     fn bind_label(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>>;
 }
 
-impl<W> BindLabel for W where W: EmitBytes {
+impl<W> BindLabel for W where W: Emit {
     fn bind_label(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
         if label.address.is_some() {
             return Err(Error::RedefinedLabel);
         }
 
-        let pos = self.pos();
+        let pos = self.position();
         for hole in label.unresolved_locs.drain(..) {
             let offset = pos as i64 - (hole.addr as i64 + 4);
 
-            self.fixup(Fixup::Rel32(hole.addr, offset as i32))?;
+            if let Ok(buffer) = self.get_mut_array::<4>(hole.addr) {
+                buffer.copy_from_slice(&(offset as u32).to_le_bytes());
+            } else {
+                panic!("fixup is out of bounds");
+            }
         }
 
         label.address = Some(pos);
@@ -76,10 +81,10 @@ impl Label {
 }
 
 
-impl<'a, W> Jmp<&'a mut Label> for W where W: EmitBytes {
+impl<'a, W> Jmp<&'a mut Label> for W where W: Emit {
     fn emit(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
         if let Some(addr) = label.address {
-            let offset = addr as isize - self.pos() as isize;
+            let offset = addr as isize - self.position() as isize;
 
             match offset {
                 -0x8000_0000..=0x7fff_ffff => Jmp::emit(self, offset as i32),
@@ -88,7 +93,7 @@ impl<'a, W> Jmp<&'a mut Label> for W where W: EmitBytes {
         } else {
             Jmp::emit(self, 0i32)?;
             let hole = Hole {
-                addr: self.pos() - 4,
+                addr: self.position() - 4,
                 kind: HoleKind::Rel32,
             };
             label.unresolved_locs.push(hole);
@@ -101,10 +106,10 @@ impl<'a, W> Jmp<&'a mut Label> for W where W: EmitBytes {
 macro_rules! jcc {
     ($($J:ident),*) => {
         $(
-            impl<'a, W> $J<&'a mut Label> for W where W: EmitBytes {
+            impl<'a, W> $J<&'a mut Label> for W where W: Emit {
                 fn emit(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
                     if let Some(addr) = label.address {
-                        let offset = addr as isize - self.pos() as isize;
+                        let offset = addr as isize - self.position() as isize;
 
                         match offset {
                             -0x8000_0000..=0x7fff_ffff => $J::emit(self, offset as i32),
@@ -113,7 +118,7 @@ macro_rules! jcc {
                     } else {
                         $J::emit(self, 0i32)?;
                         let hole = Hole {
-                            addr: self.pos() - 4,
+                            addr: self.position() - 4,
                             kind: HoleKind::Rel32,
                         };
                         label.unresolved_locs.push(hole);
