@@ -80,7 +80,7 @@ impl<'a, W> Jmp<&'a mut Label> for W where W: EmitBytes {
     type Return = ();
     fn emit(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
         if let Some(addr) = label.address {
-            let offset = addr as isize - (self.pos() as isize + 5);
+            let offset = addr as isize - self.pos() as isize;
 
             match offset {
                 -0x8000_0000..=0x7fff_ffff => Jmp::emit(self, offset as i32),
@@ -102,7 +102,7 @@ macro_rules! jcc {
                 type Return = ();
                 fn emit(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
                     if let Some(addr) = label.address {
-                        let offset = addr as isize - (self.pos() as isize + 6);
+                        let offset = addr as isize - self.pos() as isize;
 
                         match offset {
                             -0x8000_0000..=0x7fff_ffff => $J::emit(self, offset as i32),

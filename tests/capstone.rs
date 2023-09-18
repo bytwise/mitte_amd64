@@ -309,30 +309,14 @@ fn test_imm32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
 fn test_off8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
     let mut code = Vec::new();
     f(&mut code, Operand::Offset8(0x42)).unwrap();
-
-    let mut expected_disasm = Vec::new();
-    let imm = 0x42 + code.len();
-    if imm < 10 {
-        expected_disasm.push(Some(format!("{}", imm)));
-    } else {
-        expected_disasm.push(Some(format!("0x{:x}", imm)));
-    }
-
+    let expected_disasm = vec![Some("0x42")];
     test_disasm(mnemonic, &expected_disasm, &code);
 }
 
 fn test_off32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
     let mut code = Vec::new();
     f(&mut code, Operand::Offset32(0x12345678)).unwrap();
-
-    let mut expected_disasm = Vec::new();
-    let imm = 0x12345678 + code.len();
-    if imm < 10 {
-        expected_disasm.push(Some(format!("{}", imm)));
-    } else {
-        expected_disasm.push(Some(format!("0x{:x}", imm)));
-    }
-
+    let expected_disasm = vec![Some("0x12345678")];
     test_disasm(mnemonic, &expected_disasm, &code);
 }
 

@@ -4,6 +4,7 @@ use ptr::{Mem, Byte, Word, DWord, QWord};
 use operand::Operand;
 use error::Error;
 use fixup::{HoleKind, Hole};
+use encode::Encode;
 use encode::{None, D, I, M, O, M1, MI, MC, MR, RM, OI, XchgSrc, XchgDst};
 use encode::{Prefix, RexW, Op, OpPlusReg, ModRm, ModRmIndex, Imm8, Imm16, Imm32, Imm64};
 
@@ -721,8 +722,13 @@ impl<W> Call<Operand> for W where W: EmitBytes {
     }
 }
 
+impl<W> Call<i32> for W where W: EmitBytes {
+    fn emit(&mut self, imm: i32) -> Result<(), Error<Self::Error>> {
+        Encode::<D, _>::encode(self, imm - 5, (Op(0xe8), Imm32))
+    }
+}
+
 op! { Call {
-    r: i32 => (D) Op(0xe8), Imm32;
     r: Reg64 => (M) Op(0xff), ModRmIndex(2);
 }}
 
@@ -751,20 +757,32 @@ impl<W> Jmp<HoleKind> for W where W: EmitBytes {
         use fixup::HoleKind::*;
         match arg {
             Rel8 => {
-                self.write(&[0xebu8, -2i8 as u8])?;
+                Jmp::emit(self, 0i8)?;
                 Ok(Hole::rel8(self.pos() - 1))
             }
             Rel32 => {
-                self.write(&[0xe9u8, -5i8 as u8, 0u8, 0u8, 0u8])?;
+                Jmp::emit(self, 0i32)?;
                 Ok(Hole::rel32(self.pos() - 4))
             }
         }
     }
 }
 
+impl<W> Jmp<i8> for W where W: EmitBytes {
+    type Return = ();
+    fn emit(&mut self, imm: i8) -> Result<(), Error<Self::Error>> {
+        Encode::<D, _>::encode(self, imm - 2, (Op(0xeb), Imm8))
+    }
+}
+
+impl<W> Jmp<i32> for W where W: EmitBytes {
+    type Return = ();
+    fn emit(&mut self, imm: i32) -> Result<(), Error<Self::Error>> {
+        Encode::<D, _>::encode(self, imm - 5, (Op(0xe9), Imm32))
+    }
+}
+
 op! { Jmp => () {
-    imm: i8  => (D) Op(0xeb), Imm8;
-    imm: i32 => (D) Op(0xe9), Imm32;
     r: Reg64 => (M) Op(0xff), ModRmIndex(4);
 }}
 
@@ -837,22 +855,30 @@ macro_rules! cc_op {
                 use fixup::HoleKind::*;
                 match arg {
                     Rel8 => {
-                        self.write(&[0x70u8 | cond::$cond.0, -2i8 as u8])?;
+                        $J::emit(self, 0i8)?;
                         Ok(Hole::rel8(self.pos() - 1))
                     }
                     Rel32 => {
-                        self.write(&[0x0fu8, 0x80u8 | cond::$cond.0,
-                                     -6i8 as u8, 0u8, 0u8, 0u8])?;
+                        $J::emit(self, 0i32)?;
                         Ok(Hole::rel32(self.pos() - 4))
                     }
                 }
             }
         }
 
-        op! { $J => () {
-            off: i8  => (D)           Op(0x70 | cond::$cond.0), Imm8;
-            off: i32 => (D) Op(0x0f), Op(0x80 | cond::$cond.0), Imm32;
-        }}
+        impl<W> $J<i8> for W where W: EmitBytes {
+            type Return = ();
+            fn emit(&mut self, imm: i8) -> Result<(), Error<Self::Error>> {
+                Encode::<D, _>::encode(self, imm - 2, (Op(0x70 | cond::$cond.0), Imm8))
+            }
+        }
+
+        impl<W> $J<i32> for W where W: EmitBytes {
+            type Return = ();
+            fn emit(&mut self, imm: i32) -> Result<(), Error<Self::Error>> {
+                Encode::<D, _>::encode(self, imm - 6, (Op(0x0f), Op(0x80 | cond::$cond.0), Imm32))
+            }
+        }
 
 
         pub trait $Set<D>: EmitBytes {
