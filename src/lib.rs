@@ -111,27 +111,14 @@ impl EmitBytes for Vec<u8> {
 }
 
 
-macro_rules! forward1 {
-    ($f:ident ($($arg:ident : $T:ident),*) => $Trait:ident) => {
-        fn $f<$($T),*>(&mut self $(, $arg: $T)*) -> Result<(), Error<Self::Error>>
-            where Self: $Trait<$($T),*>
-        {
-            $Trait::emit(self $(, $arg)*)
-        }
-    };
-    ($f:ident ($($arg:ident : $T:ident),*) -> $R:ident => $Trait:ident) => {
-        fn $f<$($T,)* $R>(&mut self $(, $arg: $T)*) -> Result<$R, Error<Self::Error>>
-            where Self: $Trait<$($T,)* Return=$R>
-        {
-            $Trait::emit(self $(, $arg)*)
-        }
-    };
-}
-
 macro_rules! forward {
-    ($( $f:ident ($($arg:ident : $T:ident),*) $(-> $R:ident)* => $Trait:ident; )*) => {
+    ($( $f:ident ($($arg:ident : $T:ident),*) => $Trait:ident; )*) => {
         $(
-            forward1!($f($($arg: $T),*) $(-> $R)* => $Trait);
+            fn $f<$($T),*>(&mut self $(, $arg: $T)*) -> Result<(), Error<Self::Error>>
+                where Self: $Trait<$($T),*>
+            {
+                $Trait::emit(self $(, $arg)*)
+            }
         )*
     }
 }
@@ -162,7 +149,7 @@ pub trait Emit: EmitBytes + Sized {
         emit_push(src: S) => Push;
         emit_pop(dst: D) => Pop;
         emit_call(arg: T) => Call;
-        emit_jmp(arg: T) -> R => Jmp;
+        emit_jmp(arg: T) => Jmp;
         emit_ret() => Ret;
 
         emit_cmova(dst: D, src: S) => Cmova;
@@ -196,36 +183,36 @@ pub trait Emit: EmitBytes + Sized {
         emit_cmovs(dst: D, src: S) => Cmovs;
         emit_cmovz(dst: D, src: S) => Cmovz;
 
-        emit_ja(arg: T) -> R => Ja;
-        emit_jae(arg: T) -> R => Jae;
-        emit_jb(arg: T) -> R => Jb;
-        emit_jbe(arg: T) -> R => Jbe;
-        emit_jc(arg: T) -> R => Jc;
-        emit_je(arg: T) -> R => Je;
-        emit_jg(arg: T) -> R => Jg;
-        emit_jge(arg: T) -> R => Jge;
-        emit_jl(arg: T) -> R => Jl;
-        emit_jle(arg: T) -> R => Jle;
-        emit_jna(arg: T) -> R => Jna;
-        emit_jnae(arg: T) -> R => Jnae;
-        emit_jnb(arg: T) -> R => Jnb;
-        emit_jnbe(arg: T) -> R => Jnbe;
-        emit_jnc(arg: T) -> R => Jnc;
-        emit_jne(arg: T) -> R => Jne;
-        emit_jng(arg: T) -> R => Jng;
-        emit_jnge(arg: T) -> R => Jnge;
-        emit_jnl(arg: T) -> R => Jnl;
-        emit_jnle(arg: T) -> R => Jnle;
-        emit_jno(arg: T) -> R => Jno;
-        emit_jnp(arg: T) -> R => Jnp;
-        emit_jns(arg: T) -> R => Jns;
-        emit_jnz(arg: T) -> R => Jnz;
-        emit_jo(arg: T) -> R => Jo;
-        emit_jp(arg: T) -> R => Jp;
-        emit_jpe(arg: T) -> R => Jpe;
-        emit_jpo(arg: T) -> R => Jpo;
-        emit_js(arg: T) -> R => Js;
-        emit_jz(arg: T) -> R => Jz;
+        emit_ja(arg: T) => Ja;
+        emit_jae(arg: T) => Jae;
+        emit_jb(arg: T) => Jb;
+        emit_jbe(arg: T) => Jbe;
+        emit_jc(arg: T) => Jc;
+        emit_je(arg: T) => Je;
+        emit_jg(arg: T) => Jg;
+        emit_jge(arg: T) => Jge;
+        emit_jl(arg: T) => Jl;
+        emit_jle(arg: T) => Jle;
+        emit_jna(arg: T) => Jna;
+        emit_jnae(arg: T) => Jnae;
+        emit_jnb(arg: T) => Jnb;
+        emit_jnbe(arg: T) => Jnbe;
+        emit_jnc(arg: T) => Jnc;
+        emit_jne(arg: T) => Jne;
+        emit_jng(arg: T) => Jng;
+        emit_jnge(arg: T) => Jnge;
+        emit_jnl(arg: T) => Jnl;
+        emit_jnle(arg: T) => Jnle;
+        emit_jno(arg: T) => Jno;
+        emit_jnp(arg: T) => Jnp;
+        emit_jns(arg: T) => Jns;
+        emit_jnz(arg: T) => Jnz;
+        emit_jo(arg: T) => Jo;
+        emit_jp(arg: T) => Jp;
+        emit_jpe(arg: T) => Jpe;
+        emit_jpo(arg: T) => Jpo;
+        emit_js(arg: T) => Js;
+        emit_jz(arg: T) => Jz;
 
         emit_seta(dst: D) => Seta;
         emit_setae(dst: D) => Setae;

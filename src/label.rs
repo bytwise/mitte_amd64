@@ -77,7 +77,6 @@ impl Label {
 
 
 impl<'a, W> Jmp<&'a mut Label> for W where W: EmitBytes {
-    type Return = ();
     fn emit(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
         if let Some(addr) = label.address {
             let offset = addr as isize - self.pos() as isize;
@@ -87,7 +86,11 @@ impl<'a, W> Jmp<&'a mut Label> for W where W: EmitBytes {
                 _ => Err(Error::LabelTooFarAway),
             }
         } else {
-            let hole = Jmp::emit(self, HoleKind::Rel32)?;
+            Jmp::emit(self, 0i32)?;
+            let hole = Hole {
+                addr: self.pos() - 4,
+                kind: HoleKind::Rel32,
+            };
             label.unresolved_locs.push(hole);
             Ok(())
         }
@@ -99,7 +102,6 @@ macro_rules! jcc {
     ($($J:ident),*) => {
         $(
             impl<'a, W> $J<&'a mut Label> for W where W: EmitBytes {
-                type Return = ();
                 fn emit(&mut self, label: &mut Label) -> Result<(), Error<Self::Error>> {
                     if let Some(addr) = label.address {
                         let offset = addr as isize - self.pos() as isize;
@@ -109,7 +111,11 @@ macro_rules! jcc {
                             _ => Err(Error::LabelTooFarAway),
                         }
                     } else {
-                        let hole = $J::emit(self, HoleKind::Rel32)?;
+                        $J::emit(self, 0i32)?;
+                        let hole = Hole {
+                            addr: self.pos() - 4,
+                            kind: HoleKind::Rel32,
+                        };
                         label.unresolved_locs.push(hole);
                         Ok(())
                     }
