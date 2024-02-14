@@ -729,6 +729,20 @@ impl<W> Call<i32> for W where W: EmitSlice {
     }
 }
 
+impl<W, L> Call<&mut L> for W
+    where W: Emit, L: Label<W, FixupKind>
+{
+    fn emit(&mut self, label: &mut L) -> Result<(), Error<Self::Error>> {
+        self.emit_branch(
+            label,
+            FixupKind::PcRel32,
+            |emit, offset| {
+                Call::emit(emit, offset as i32)
+            },
+        )
+    }
+}
+
 op! { Call {
     r: Reg64 => (M) Op(0xff), ModRmIndex(2);
 }}
