@@ -6,7 +6,7 @@ pub use self::Reg32::*;
 pub use self::Reg64::*;
 
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Reg8 {
     Al = 0,
     Cl = 1,
@@ -77,8 +77,33 @@ impl Register for Reg8 {
     }
 }
 
+impl Reg8 {
+    #[inline]
+    fn low_from_index(index: usize) -> Option<Reg8> {
+        match index {
+            0 => Some(Reg8::Al),
+            1 => Some(Reg8::Cl),
+            2 => Some(Reg8::Dl),
+            3 => Some(Reg8::Bl),
+            4 => Some(Reg8::Spl),
+            5 => Some(Reg8::Bpl),
+            6 => Some(Reg8::Sil),
+            7 => Some(Reg8::Dil),
+            8 => Some(Reg8::R8b),
+            9 => Some(Reg8::R9b),
+            10 => Some(Reg8::R10b),
+            11 => Some(Reg8::R11b),
+            12 => Some(Reg8::R12b),
+            13 => Some(Reg8::R13b),
+            14 => Some(Reg8::R14b),
+            15 => Some(Reg8::R15b),
+            _ => None,
+        }
+    }
+}
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Reg16 {
     Ax = 0,
     Cx = 1,
@@ -141,8 +166,33 @@ impl Register for Reg16 {
     }
 }
 
+impl Reg16 {
+    #[inline]
+    fn from_index(index: usize) -> Option<Reg16> {
+        match index {
+            0 => Some(Reg16::Ax),
+            1 => Some(Reg16::Cx),
+            2 => Some(Reg16::Dx),
+            3 => Some(Reg16::Bx),
+            4 => Some(Reg16::Sp),
+            5 => Some(Reg16::Bp),
+            6 => Some(Reg16::Si),
+            7 => Some(Reg16::Di),
+            8 => Some(Reg16::R8w),
+            9 => Some(Reg16::R9w),
+            10 => Some(Reg16::R10w),
+            11 => Some(Reg16::R11w),
+            12 => Some(Reg16::R12w),
+            13 => Some(Reg16::R13w),
+            14 => Some(Reg16::R14w),
+            15 => Some(Reg16::R15w),
+            _ => None,
+        }
+    }
+}
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Reg32 {
     Eax = 0,
     Ecx = 1,
@@ -205,8 +255,33 @@ impl Register for Reg32 {
     }
 }
 
+impl Reg32 {
+    #[inline]
+    fn from_index(index: usize) -> Option<Reg32> {
+        match index {
+            0 => Some(Reg32::Eax),
+            1 => Some(Reg32::Ecx),
+            2 => Some(Reg32::Edx),
+            3 => Some(Reg32::Ebx),
+            4 => Some(Reg32::Esp),
+            5 => Some(Reg32::Ebp),
+            6 => Some(Reg32::Esi),
+            7 => Some(Reg32::Edi),
+            8 => Some(Reg32::R8d),
+            9 => Some(Reg32::R9d),
+            10 => Some(Reg32::R10d),
+            11 => Some(Reg32::R11d),
+            12 => Some(Reg32::R12d),
+            13 => Some(Reg32::R13d),
+            14 => Some(Reg32::R14d),
+            15 => Some(Reg32::R15d),
+            _ => None,
+        }
+    }
+}
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub enum Reg64 {
     Rax = 0,
     Rcx = 1,
@@ -290,5 +365,94 @@ impl Register for Reg64 {
     #[inline]
     fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>> {
         Ok(())
+    }
+}
+
+impl Reg64 {
+    #[inline]
+    fn from_index(index: usize) -> Option<Reg64> {
+        match index {
+            0 => Some(Reg64::Rax),
+            1 => Some(Reg64::Rcx),
+            2 => Some(Reg64::Rdx),
+            3 => Some(Reg64::Rbx),
+            4 => Some(Reg64::Rsp),
+            5 => Some(Reg64::Rbp),
+            6 => Some(Reg64::Rsi),
+            7 => Some(Reg64::Rdi),
+            8 => Some(Reg64::R8),
+            9 => Some(Reg64::R9),
+            10 => Some(Reg64::R10),
+            11 => Some(Reg64::R11),
+            12 => Some(Reg64::R12),
+            13 => Some(Reg64::R13),
+            14 => Some(Reg64::R14),
+            15 => Some(Reg64::R15),
+            _ => None,
+        }
+    }
+}
+
+
+impl From<Reg16> for Reg8 {
+    #[inline]
+    fn from(reg: Reg16) -> Reg8 {
+        Reg8::low_from_index(reg as usize).unwrap()
+    }
+}
+
+impl From<Reg16> for Reg32 {
+    #[inline]
+    fn from(reg: Reg16) -> Reg32 {
+        Reg32::from_index(reg as usize).unwrap()
+    }
+}
+
+impl From<Reg16> for Reg64 {
+    #[inline]
+    fn from(reg: Reg16) -> Reg64 {
+        Reg64::from_index(reg as usize).unwrap()
+    }
+}
+
+impl From<Reg32> for Reg8 {
+    #[inline]
+    fn from(reg: Reg32) -> Reg8 {
+        Reg8::low_from_index(reg as usize).unwrap()
+    }
+}
+
+impl From<Reg32> for Reg16 {
+    #[inline]
+    fn from(reg: Reg32) -> Reg16 {
+        Reg16::from_index(reg as usize).unwrap()
+    }
+}
+
+impl From<Reg32> for Reg64 {
+    #[inline]
+    fn from(reg: Reg32) -> Reg64 {
+        Reg64::from_index(reg as usize).unwrap()
+    }
+}
+
+impl From<Reg64> for Reg8 {
+    #[inline]
+    fn from(reg: Reg64) -> Reg8 {
+        Reg8::low_from_index(reg as usize).unwrap()
+    }
+}
+
+impl From<Reg64> for Reg16 {
+    #[inline]
+    fn from(reg: Reg64) -> Reg16 {
+        Reg16::from_index(reg as usize).unwrap()
+    }
+}
+
+impl From<Reg64> for Reg32 {
+    #[inline]
+    fn from(reg: Reg64) -> Reg32 {
+        Reg32::from_index(reg as usize).unwrap()
     }
 }
