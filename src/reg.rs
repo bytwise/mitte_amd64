@@ -79,7 +79,7 @@ impl Register for Reg8 {
 
 impl Reg8 {
     #[inline]
-    fn low_from_index(index: usize) -> Option<Reg8> {
+    pub fn low_from_index(index: usize) -> Option<Reg8> {
         match index {
             0 => Some(Reg8::Al),
             1 => Some(Reg8::Cl),
@@ -168,7 +168,7 @@ impl Register for Reg16 {
 
 impl Reg16 {
     #[inline]
-    fn from_index(index: usize) -> Option<Reg16> {
+    pub fn from_index(index: usize) -> Option<Reg16> {
         match index {
             0 => Some(Reg16::Ax),
             1 => Some(Reg16::Cx),
@@ -257,7 +257,7 @@ impl Register for Reg32 {
 
 impl Reg32 {
     #[inline]
-    fn from_index(index: usize) -> Option<Reg32> {
+    pub fn from_index(index: usize) -> Option<Reg32> {
         match index {
             0 => Some(Reg32::Eax),
             1 => Some(Reg32::Ecx),
@@ -370,7 +370,7 @@ impl Register for Reg64 {
 
 impl Reg64 {
     #[inline]
-    fn from_index(index: usize) -> Option<Reg64> {
+    pub fn from_index(index: usize) -> Option<Reg64> {
         match index {
             0 => Some(Reg64::Rax),
             1 => Some(Reg64::Rcx),
