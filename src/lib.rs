@@ -164,6 +164,9 @@ pub trait Emit: EmitSlice {
         emit_movzx(dst: D, src: S) => Movzx;
         emit_movsx(dst: D, src: S) => Movsx;
 
+        emit_bsf(dst: D, src: S) => Bsf;
+        emit_bsr(dst: D, src: S) => Bsr;
+
         emit_cdq() => Cdq;
         emit_xchg(dst: D, src: S) => Xchg;
 

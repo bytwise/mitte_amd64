@@ -1038,6 +1038,66 @@ op! { Movsx {
 }}
 
 
+pub trait Bsf<D, S>: EmitSlice {
+    fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
+}
+
+impl<W> Bsf<Operand, Operand> for W where W: EmitSlice {
+    fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
+        use operand::Operand::*;
+        match (dst, src) {
+            (Reg16(d), Reg16(s)) => Bsf::emit(self, d, s),
+            (Reg32(d), Reg32(s)) => Bsf::emit(self, d, s),
+            (Reg64(d), Reg64(s)) => Bsf::emit(self, d, s),
+            (Reg16(d), WordPointer(s)) => Bsf::emit(self, d, s),
+            (Reg32(d), DWordPointer(s)) => Bsf::emit(self, d, s),
+            (Reg64(d), QWordPointer(s)) => Bsf::emit(self, d, s),
+            _ => Err(Error::InvalidOperands),
+        }
+    }
+}
+
+op! { Bsf {
+    dst: Reg16, src: Reg16 => (RM) Prefix(0x66), Op(0x0f), Op(0xbc), ModRm;
+    dst: Reg32, src: Reg32 => (RM)               Op(0x0f), Op(0xbc), ModRm;
+    dst: Reg64, src: Reg64 => (RM) RexW,         Op(0x0f), Op(0xbc), ModRm;
+
+    <P: Mem> dst: Reg16, src: Word<P> => (RM) Prefix(0x66), Op(0x0f), Op(0xbc), ModRm;
+    <P: Mem> dst: Reg32, src: DWord<P> => (RM)              Op(0x0f), Op(0xbc), ModRm;
+    <P: Mem> dst: Reg64, src: QWord<P> => (RM) RexW,        Op(0x0f), Op(0xbc), ModRm;
+}}
+
+
+pub trait Bsr<D, S>: EmitSlice {
+    fn emit(&mut self, dst: D, src: S) -> Result<(), Error<Self::Error>>;
+}
+
+impl<W> Bsr<Operand, Operand> for W where W: EmitSlice {
+    fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
+        use operand::Operand::*;
+        match (dst, src) {
+            (Reg16(d), Reg16(s)) => Bsr::emit(self, d, s),
+            (Reg32(d), Reg32(s)) => Bsr::emit(self, d, s),
+            (Reg64(d), Reg64(s)) => Bsr::emit(self, d, s),
+            (Reg16(d), WordPointer(s)) => Bsr::emit(self, d, s),
+            (Reg32(d), DWordPointer(s)) => Bsr::emit(self, d, s),
+            (Reg64(d), QWordPointer(s)) => Bsr::emit(self, d, s),
+            _ => Err(Error::InvalidOperands),
+        }
+    }
+}
+
+op! { Bsr {
+    dst: Reg16, src: Reg16 => (RM) Prefix(0x66), Op(0x0f), Op(0xbd), ModRm;
+    dst: Reg32, src: Reg32 => (RM)               Op(0x0f), Op(0xbd), ModRm;
+    dst: Reg64, src: Reg64 => (RM) RexW,         Op(0x0f), Op(0xbd), ModRm;
+
+    <P: Mem> dst: Reg16, src: Word<P> => (RM) Prefix(0x66), Op(0x0f), Op(0xbd), ModRm;
+    <P: Mem> dst: Reg32, src: DWord<P> => (RM)              Op(0x0f), Op(0xbd), ModRm;
+    <P: Mem> dst: Reg64, src: QWord<P> => (RM) RexW,        Op(0x0f), Op(0xbd), ModRm;
+}}
+
+
 pub trait Cdq: EmitSlice {
     fn emit(&mut self) -> Result<(), Error<Self::Error>>;
 }

@@ -2607,6 +2607,28 @@ fn test_movsx() {
 }
 
 #[test]
+fn test_bsf() {
+    test_reg16_reg16("bsf", Emit::emit_bsf);
+    test_reg32_reg32("bsf", Emit::emit_bsf);
+    test_reg64_reg64("bsf", Emit::emit_bsf);
+
+    test_reg16_word_ptr("bsf", Emit::emit_bsf);
+    test_reg32_dword_ptr("bsf", Emit::emit_bsf);
+    test_reg64_qword_ptr("bsf", Emit::emit_bsf);
+}
+
+#[test]
+fn test_bsr() {
+    test_reg16_reg16("bsr", Emit::emit_bsr);
+    test_reg32_reg32("bsr", Emit::emit_bsr);
+    test_reg64_reg64("bsr", Emit::emit_bsr);
+
+    test_reg16_word_ptr("bsr", Emit::emit_bsr);
+    test_reg32_dword_ptr("bsr", Emit::emit_bsr);
+    test_reg64_qword_ptr("bsr", Emit::emit_bsr);
+}
+
+#[test]
 fn test_cdq() {
     test_unit("cdq", Emit::emit_cdq);
 }
