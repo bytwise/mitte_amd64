@@ -8,7 +8,7 @@ keywords = ["emitter", "assembler", "amd64", "x86_64"]
 license = "MIT/Apache-2.0"
 
 [dependencies]
-mitte_core = { git = "https://github.com/bytwise/mitte_core", rev = "09e54d1" }
+mitte_core = { git = "https://github.com/bytwise/mitte_core", rev = "a5bda09" }
 arrayvec = "0.7"
 
 [dev-dependencies]
