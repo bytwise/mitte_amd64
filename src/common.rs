@@ -1,16 +1,16 @@
 use std::fmt;
 
-use buffer::Buffer;
-use reg::Reg64;
-use ptr::{Scale, Scaled};
-use ptr::{Ptr, Pointer};
-use error::Error;
+use crate::buffer::Buffer;
+use crate::reg::Reg64;
+use crate::ptr::{Scale, Scaled};
+use crate::ptr::{Ptr, Pointer};
+use crate::error::Error;
 
 
 pub enum NoError {}
 
 impl<E> From<Error<NoError>> for Error<E>
-    where E: ::std::error::Error
+    where E: std::error::Error
 {
     fn from(error: Error<NoError>) -> Error<E> {
         match error {
@@ -341,7 +341,7 @@ impl<D> Rex for Ptr<Reg64, Scaled<Reg64>, D> {
 
 impl Rex for Pointer {
     fn rex(&self) -> Result<Option<u8>, Error<NoError>> {
-        use ptr::Pointer::*;
+        use crate::ptr::Pointer::*;
         match *self {
             Disp8(_) |
             Disp32(_) => {
@@ -368,7 +368,7 @@ impl Rex for Pointer {
     fn rex_reg<R>(&self, reg: R) -> Result<Option<u8>, Error<NoError>>
         where R: Register
     {
-        use ptr::Pointer::*;
+        use crate::ptr::Pointer::*;
         match *self {
             Disp8(_) |
             Disp32(_) => {
@@ -478,7 +478,7 @@ impl Args for Ptr<Reg64, Scaled<Reg64>, i32> {
 impl Args for Pointer {
     #[inline]
     fn write(buffer: &mut Buffer, p: Pointer, reg: u8) -> Result<(), Error<NoError>> {
-        use ptr::Pointer::*;
+        use crate::ptr::Pointer::*;
         match p {
             Disp8(disp) => write_reg_disp(buffer, reg, disp as i32),
             Disp32(disp) => write_reg_disp(buffer, reg, disp),

@@ -1,13 +1,13 @@
 use mitte_core::{EmitSlice, Emit, Label};
 
-use reg::{Reg8, Reg16, Reg32, Reg64};
-use ptr::{Mem, Byte, Word, DWord, QWord};
-use operand::Operand;
-use error::Error;
-use fixup::FixupKind;
-use encode::Encode;
-use encode::{None, D, I, M, O, M1, MI, MC, MR, RM, OI, XchgSrc, XchgDst};
-use encode::{Prefix, RexW, Op, OpPlusReg, ModRm, ModRmIndex, Imm8, Imm16, Imm32, Imm64};
+use crate::reg::{Reg8, Reg16, Reg32, Reg64};
+use crate::ptr::{Mem, Byte, Word, DWord, QWord};
+use crate::operand::Operand;
+use crate::error::Error;
+use crate::fixup::FixupKind;
+use crate::encode::Encode;
+use crate::encode::{None, D, I, M, O, M1, MI, MC, MR, RM, OI, XchgSrc, XchgDst};
+use crate::encode::{Prefix, RexW, Op, OpPlusReg, ModRm, ModRmIndex, Imm8, Imm16, Imm32, Imm64};
 
 
 struct ArithOpcodes {
@@ -190,7 +190,7 @@ macro_rules! binary_arith_op {
 
         impl<W> $Op<Operand, Operand> for W where W: EmitSlice {
             fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
-                use operand::Operand::*;
+                use crate::operand::Operand::*;
                 match (dst, src) {
                     (Reg8(d), Imm8(s)) => $Op::emit(self, d, s),
                     (Reg16(d), Imm8(s)) => $Op::emit(self, d, s),
@@ -296,7 +296,7 @@ macro_rules! shift_op {
 
         impl<W> $Op<Operand, Operand> for W where W: EmitSlice {
             fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
-                use operand::Operand::*;
+                use crate::operand::Operand::*;
                 match (dst, src) {
                     (Reg8(d), Imm8(s)) => $Op::emit(self, d, s),
                     (Reg16(d), Imm8(s)) => $Op::emit(self, d, s),
@@ -412,7 +412,7 @@ macro_rules! unary_arith_op {
 
             impl<W> $Op<Operand> for W where W: EmitSlice {
                 fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
-                    use operand::Operand::*;
+                    use crate::operand::Operand::*;
                     match arg {
                         Reg8(a) => $Op::emit(self, a),
                         Reg16(a) => $Op::emit(self, a),
@@ -453,7 +453,7 @@ pub trait Inc<T>: EmitSlice {
 
 impl<W> Inc<Operand> for W where W: EmitSlice {
     fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match arg {
             Reg8(a) => Inc::emit(self, a),
             Reg16(a) => Inc::emit(self, a),
@@ -487,7 +487,7 @@ pub trait Dec<T>: EmitSlice {
 
 impl<W> Dec<Operand> for W where W: EmitSlice {
     fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match arg {
             Reg8(a) => Dec::emit(self, a),
             Reg16(a) => Dec::emit(self, a),
@@ -521,7 +521,7 @@ pub trait Test<D, S>: EmitSlice {
 
 impl<W> Test<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match (dst, src) {
             (Reg8(d), Imm8(s)) => Test::emit(self, d, s),
             (Reg16(d), Imm16(s)) => Test::emit(self, d, s),
@@ -593,7 +593,7 @@ pub trait Mov<D, S>: EmitSlice {
 
 impl<W> Mov<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match (dst, src) {
             (Reg8(d), Imm8(s)) => Mov::emit(self, d, s),
             (Reg16(d), Imm16(s)) => Mov::emit(self, d, s),
@@ -656,7 +656,7 @@ pub trait Push<S>: EmitSlice {
 
 impl<W> Push<Operand> for W where W: EmitSlice {
     fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match arg {
             Imm8(a) => Push::emit(self, a),
             Imm16(a) => Push::emit(self, a),
@@ -688,7 +688,7 @@ pub trait Pop<D>: EmitSlice {
 
 impl<W> Pop<Operand> for W where W: EmitSlice {
     fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match arg {
             Reg16(a) => Pop::emit(self, a),
             Reg64(a) => Pop::emit(self, a),
@@ -714,7 +714,7 @@ pub trait Call<T>: EmitSlice {
 
 impl<W> Call<Operand> for W where W: EmitSlice {
     fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match arg {
             Offset32(a) => Call::emit(self, a),
             Reg64(a) => Call::emit(self, a),
@@ -754,7 +754,7 @@ pub trait Jmp<T>: EmitSlice {
 
 impl<W> Jmp<Operand> for W where W: EmitSlice {
     fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match arg {
             Offset8(a) => Jmp::emit(self, a),
             Offset32(a) => Jmp::emit(self, a),
@@ -813,7 +813,7 @@ macro_rules! cc_op {
 
         impl<W> $Cmov<Operand, Operand> for W where W: EmitSlice {
             fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
-                use operand::Operand::*;
+                use crate::operand::Operand::*;
                 match (dst, src) {
                     (Reg16(d), Reg16(s)) => $Cmov::emit(self, d, s),
                     (Reg32(d), Reg32(s)) => $Cmov::emit(self, d, s),
@@ -846,7 +846,7 @@ macro_rules! cc_op {
 
         impl<W> $J<Operand> for W where W: EmitSlice {
             fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
-                use operand::Operand::*;
+                use crate::operand::Operand::*;
                 match arg {
                     Offset8(a) => $J::emit(self, a),
                     Offset32(a) => $J::emit(self, a),
@@ -888,7 +888,7 @@ macro_rules! cc_op {
 
         impl<W> $Set<Operand> for W where W: EmitSlice {
             fn emit(&mut self, arg: Operand) -> Result<(), Error<Self::Error>> {
-                use operand::Operand::*;
+                use crate::operand::Operand::*;
                 match arg {
                     Reg8(a) => $Set::emit(self, a),
                     BytePointer(a) => $Set::emit(self, a),
@@ -945,7 +945,7 @@ pub trait Lea<D, S>: EmitSlice {
 
 impl<W> Lea<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match (dst, src) {
             (Reg16(d), WordPointer(s)) => Lea::emit(self, d, s),
             (Reg32(d), DWordPointer(s)) => Lea::emit(self, d, s),
@@ -968,7 +968,7 @@ pub trait Movzx<D, S>: EmitSlice {
 
 impl<W> Movzx<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match (dst, src) {
             (Reg16(d), Reg8(s)) => Movzx::emit(self, d, s),
             (Reg32(d), Reg8(s)) => Movzx::emit(self, d, s),
@@ -1006,7 +1006,7 @@ pub trait Movsx<D, S>: EmitSlice {
 
 impl<W> Movsx<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match (dst, src) {
             (Reg16(d), Reg8(s)) => Movsx::emit(self, d, s),
             (Reg32(d), Reg8(s)) => Movsx::emit(self, d, s),
@@ -1044,7 +1044,7 @@ pub trait Bsf<D, S>: EmitSlice {
 
 impl<W> Bsf<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match (dst, src) {
             (Reg16(d), Reg16(s)) => Bsf::emit(self, d, s),
             (Reg32(d), Reg32(s)) => Bsf::emit(self, d, s),
@@ -1074,7 +1074,7 @@ pub trait Bsr<D, S>: EmitSlice {
 
 impl<W> Bsr<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match (dst, src) {
             (Reg16(d), Reg16(s)) => Bsr::emit(self, d, s),
             (Reg32(d), Reg32(s)) => Bsr::emit(self, d, s),
@@ -1113,7 +1113,7 @@ pub trait Xchg<D, S>: EmitSlice {
 
 impl<W> Xchg<Operand, Operand> for W where W: EmitSlice {
     fn emit(&mut self, dst: Operand, src: Operand) -> Result<(), Error<Self::Error>> {
-        use operand::Operand::*;
+        use crate::operand::Operand::*;
         match (dst, src) {
             (Reg8(d), Reg8(s)) => Xchg::emit(self, d, s),
             (Reg16(d), Reg16(s)) => Xchg::emit(self, d, s),

@@ -1,5 +1,5 @@
-use common::{Register, NoError};
-use error::Error;
+use crate::common::{Register, NoError};
+use crate::error::Error;
 pub use self::Reg8::*;
 pub use self::Reg16::*;
 pub use self::Reg32::*;

@@ -16,11 +16,11 @@ macro_rules! op {
             where W: mitte_core::EmitSlice $($(, $A : $bound)*)*
         {
             fn emit(&mut self, $($arg: $T),*)
-                -> ::std::result::Result<(), ::error::Error<W::Error>>
+                -> std::result::Result<(), crate::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
                 assert_eq!($assert_e1, $assert_e2);
-                ::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
+                crate::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
             }
         }
         op! { $Trait { $($rest)* } }
@@ -42,13 +42,13 @@ macro_rules! op {
             where W: mitte_core::EmitSlice $($(, $A : $bound)*)*
         {
             fn emit(&mut self, $($arg: $T),*)
-                -> ::std::result::Result<(), ::error::Error<W::Error>>
+                -> std::result::Result<(), crate::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
                 if $cond {
-                    ::encode::Encode::<$enc1, _>::encode(self, ( $($arg),* ), ( $($e1),* ))
+                    crate::encode::Encode::<$enc1, _>::encode(self, ( $($arg),* ), ( $($e1),* ))
                 } else {
-                    ::encode::Encode::<$enc2, _>::encode(self, ( $($arg),* ), ( $($e2),* ))
+                    crate::encode::Encode::<$enc2, _>::encode(self, ( $($arg),* ), ( $($e2),* ))
                 }
             }
         }
@@ -70,15 +70,15 @@ macro_rules! op {
     ) => {
         impl<W> $Trait<$($T),*> for W where W: mitte_core::EmitSlice {
             fn emit(&mut self, $($arg: $T),*)
-                -> ::std::result::Result<(), ::error::Error<W::Error>>
+                -> std::result::Result<(), crate::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
                 if $cond1 {
-                    ::encode::Encode::<$enc1, _>::encode(self, ( $($arg),* ), ( $($e1),* ))
+                    crate::encode::Encode::<$enc1, _>::encode(self, ( $($arg),* ), ( $($e1),* ))
                 } else if $cond2 {
-                    ::encode::Encode::<$enc2, _>::encode(self, ( $($arg),* ), ( $($e2),* ))
+                    crate::encode::Encode::<$enc2, _>::encode(self, ( $($arg),* ), ( $($e2),* ))
                 } else {
-                    ::encode::Encode::<$enc3, _>::encode(self, ( $($arg),* ), ( $($e3),* ))
+                    crate::encode::Encode::<$enc3, _>::encode(self, ( $($arg),* ), ( $($e3),* ))
                 }
             }
         }
@@ -97,10 +97,10 @@ macro_rules! op {
             where W: mitte_core::EmitSlice $($(, $A : $bound)*)*
         {
             fn emit(&mut self, $($arg: $T),*)
-                -> ::std::result::Result<(), ::error::Error<W::Error>>
+                -> std::result::Result<(), crate::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
-                ::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
+                crate::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
             }
         }
         op! { $Trait { $($rest)* } }
@@ -116,10 +116,10 @@ macro_rules! op {
         impl<W> $Trait<$($T),*> for W where W: mitte_core::EmitSlice {
             type Return = $R;
             fn emit(&mut self, $($arg: $T),*)
-                -> ::std::result::Result<$R, ::error::Error<W::Error>>
+                -> std::result::Result<$R, crate::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
-                ::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
+                crate::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
             }
         }
         op! { $Trait => $R { $($rest)* } }

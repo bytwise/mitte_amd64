@@ -1,10 +1,10 @@
 use mitte_core::EmitSlice;
 
-use common::*;
-use reg::{Reg8, Reg16, Reg32, Reg64};
-use ptr::{Mem, Byte, Word, DWord, QWord};
-use error::Error;
-use buffer::Buffer;
+use crate::common::*;
+use crate::reg::{Reg8, Reg16, Reg32, Reg64};
+use crate::ptr::{Mem, Byte, Word, DWord, QWord};
+use crate::error::Error;
+use crate::buffer::Buffer;
 
 
 pub struct None;
