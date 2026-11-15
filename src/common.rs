@@ -35,100 +35,61 @@ pub trait Register: Copy + 'static + fmt::Debug {
 }
 
 
+#[derive(Clone, Copy, Debug)]
+struct NoRegister;
+
+impl Register for NoRegister {
+    #[inline]
+    fn size(&self) -> usize { 0 }
+    #[inline]
+    fn is_64bit(&self) -> bool { false }
+    #[inline]
+    fn has_extended_index(&self) -> bool { false }
+    #[inline]
+    fn is_encodable_with_rex(&self) -> bool { true }
+    #[inline]
+    fn needs_rex(&self) -> bool { false }
+    #[inline]
+    fn rm(&self) -> u8 { 0 }
+    #[inline]
+    fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>> { Ok(()) }
+}
+
+
 pub fn rex_r<R>(r: R) -> Result<Option<u8>, Error<NoError>>
     where R: Register
 {
-    if !r.needs_rex() {
-        return Ok(None);
-    }
-
-    let rex = 0x40
-        | (r.is_64bit() as u8) << 3
-        | (r.has_extended_index() as u8) << 2;
-
-    Ok(Some(rex))
+    rex_rxb(r, NoRegister, NoRegister)
 }
 
 pub fn rex_x<X>(x: X) -> Result<Option<u8>, Error<NoError>>
     where X: Register
 {
-    if !x.needs_rex() {
-        return Ok(None);
-    }
-
-    let rex = 0x40
-        | (x.is_64bit() as u8) << 3
-        | (x.has_extended_index() as u8) << 1;
-
-    Ok(Some(rex))
+    rex_rxb(NoRegister, x, NoRegister)
 }
 
 pub fn rex_b<B>(b: B) -> Result<Option<u8>, Error<NoError>>
     where B: Register
 {
-    if !b.needs_rex() {
-        return Ok(None);
-    }
-
-    let rex = 0x40
-        | (b.is_64bit() as u8) << 3
-        | b.has_extended_index() as u8;
-
-    Ok(Some(rex))
+    rex_rxb(NoRegister, NoRegister, b)
 }
 
 pub fn rex_rx<R, X>(r: R, x: X) -> Result<Option<u8>, Error<NoError>>
     where R: Register, X: Register
 {
-    if !r.needs_rex() && !x.needs_rex() {
-        return Ok(None);
-    }
-
-    r.check_is_rex_compatible()?;
-    x.check_is_rex_compatible()?;
-
-    let rex = 0x40
-        | ((r.is_64bit() | x.is_64bit()) as u8) << 3
-        | (r.has_extended_index() as u8) << 2
-        | (x.has_extended_index() as u8) << 1;
-
-    Ok(Some(rex))
+    rex_rxb(r, x, NoRegister)
 }
 
 pub fn rex_rb<R, B>(r: R, b: B) -> Result<Option<u8>, Error<NoError>>
     where R: Register, B: Register
 {
-    if !r.needs_rex() && !b.needs_rex() {
-        return Ok(None);
-    }
-
-    r.check_is_rex_compatible()?;
-    b.check_is_rex_compatible()?;
-
-    let rex = 0x40
-        | ((r.is_64bit() | b.is_64bit()) as u8) << 3
-        | (r.has_extended_index() as u8) << 2
-        | b.has_extended_index() as u8;
-
-    Ok(Some(rex))
+    rex_rxb(r, NoRegister, b)
 }
 
 pub fn rex_xb<X, B>(x: X, b: B) -> Result<Option<u8>, Error<NoError>>
     where X: Register, B: Register
 {
-    if !x.needs_rex() && !b.needs_rex() {
-        return Ok(None);
-    }
-
-    x.check_is_rex_compatible()?;
-    b.check_is_rex_compatible()?;
-
-    let rex = 0x40
-        | ((x.is_64bit() | b.is_64bit()) as u8) << 3
-        | (x.has_extended_index() as u8) << 1
-        | b.has_extended_index() as u8;
-
-    Ok(Some(rex))
+    rex_rxb(NoRegister, x, b)
 }
 
 pub fn rex_rxb<R, X, B>(r: R, x: X, b: B) -> Result<Option<u8>, Error<NoError>>
