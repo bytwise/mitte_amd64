@@ -13,5 +13,5 @@ mitte_core = { git = "https://github.com/bytwise/mitte_core", rev = "a5bda09" }
 arrayvec = "0.7"
 
 [dev-dependencies]
-capstone = "0.2.0"
+capstone = "0.14.0"
 memmap = "0.5.0"
