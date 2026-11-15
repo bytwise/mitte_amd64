@@ -2,7 +2,7 @@ use std::error;
 use std::fmt;
 use std::io;
 
-use crate::reg::{Reg8, Reg64};
+use super::reg::{Reg8, Reg64};
 
 
 pub type IoError = Error<io::Error>;

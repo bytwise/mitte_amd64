@@ -1,10 +1,10 @@
 use std::fmt;
 
 use crate::buffer::Buffer;
-use crate::reg::Reg64;
-use crate::ptr::{Scale, Scaled};
-use crate::ptr::{Ptr, Pointer};
-use crate::error::Error;
+use super::reg::Reg64;
+use super::ptr::{Scale, Scaled};
+use super::ptr::{Ptr, Pointer};
+use super::error::Error;
 
 
 pub enum NoError {}
@@ -302,7 +302,7 @@ impl<D> Rex for Ptr<Reg64, Scaled<Reg64>, D> {
 
 impl Rex for Pointer {
     fn rex(&self) -> Result<Option<u8>, Error<NoError>> {
-        use crate::ptr::Pointer::*;
+        use super::ptr::Pointer::*;
         match *self {
             Disp8(_) |
             Disp32(_) => {
@@ -329,7 +329,7 @@ impl Rex for Pointer {
     fn rex_reg<R>(&self, reg: R) -> Result<Option<u8>, Error<NoError>>
         where R: Register
     {
-        use crate::ptr::Pointer::*;
+        use super::ptr::Pointer::*;
         match *self {
             Disp8(_) |
             Disp32(_) => {
@@ -439,7 +439,7 @@ impl Args for Ptr<Reg64, Scaled<Reg64>, i32> {
 impl Args for Pointer {
     #[inline]
     fn write(buffer: &mut Buffer, p: Pointer, reg: u8) -> Result<(), Error<NoError>> {
-        use crate::ptr::Pointer::*;
+        use super::ptr::Pointer::*;
         match p {
             Disp8(disp) => write_reg_disp(buffer, reg, disp as i32),
             Disp32(disp) => write_reg_disp(buffer, reg, disp),

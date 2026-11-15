@@ -1,3 +1,18 @@
+macro_rules! forward {
+    ($( $f:ident ($($arg:ident : $T:ident),*) => $Trait:ident; )*) => {
+        $(
+            fn $f<$($T),*>(&mut self $(, $arg: $T)*) -> Result<(), Error<Self::Error>>
+                where Self: $Trait<$($T),*>
+            {
+                $Trait::emit(self $(, $arg)*)
+            }
+        )*
+    }
+}
+
+pub(crate) use forward;
+
+
 macro_rules! op {
     ($Trait:ident {}) => {};
     ($Trait:ident => $R:ty {}) => {};
@@ -16,11 +31,11 @@ macro_rules! op {
             where W: mitte_core::EmitSlice $($(, $A : $bound)*)*
         {
             fn emit(&mut self, $($arg: $T),*)
-                -> std::result::Result<(), crate::error::Error<W::Error>>
+                -> std::result::Result<(), super::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
                 assert_eq!($assert_e1, $assert_e2);
-                crate::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
+                super::encoding::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
             }
         }
         op! { $Trait { $($rest)* } }
@@ -42,13 +57,13 @@ macro_rules! op {
             where W: mitte_core::EmitSlice $($(, $A : $bound)*)*
         {
             fn emit(&mut self, $($arg: $T),*)
-                -> std::result::Result<(), crate::error::Error<W::Error>>
+                -> std::result::Result<(), super::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
                 if $cond {
-                    crate::encode::Encode::<$enc1, _>::encode(self, ( $($arg),* ), ( $($e1),* ))
+                    super::encoding::Encode::<$enc1, _>::encode(self, ( $($arg),* ), ( $($e1),* ))
                 } else {
-                    crate::encode::Encode::<$enc2, _>::encode(self, ( $($arg),* ), ( $($e2),* ))
+                    super::encoding::Encode::<$enc2, _>::encode(self, ( $($arg),* ), ( $($e2),* ))
                 }
             }
         }
@@ -70,15 +85,15 @@ macro_rules! op {
     ) => {
         impl<W> $Trait<$($T),*> for W where W: mitte_core::EmitSlice {
             fn emit(&mut self, $($arg: $T),*)
-                -> std::result::Result<(), crate::error::Error<W::Error>>
+                -> std::result::Result<(), super::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
                 if $cond1 {
-                    crate::encode::Encode::<$enc1, _>::encode(self, ( $($arg),* ), ( $($e1),* ))
+                    super::encoding::Encode::<$enc1, _>::encode(self, ( $($arg),* ), ( $($e1),* ))
                 } else if $cond2 {
-                    crate::encode::Encode::<$enc2, _>::encode(self, ( $($arg),* ), ( $($e2),* ))
+                    super::encoding::Encode::<$enc2, _>::encode(self, ( $($arg),* ), ( $($e2),* ))
                 } else {
-                    crate::encode::Encode::<$enc3, _>::encode(self, ( $($arg),* ), ( $($e3),* ))
+                    super::encoding::Encode::<$enc3, _>::encode(self, ( $($arg),* ), ( $($e3),* ))
                 }
             }
         }
@@ -97,10 +112,10 @@ macro_rules! op {
             where W: mitte_core::EmitSlice $($(, $A : $bound)*)*
         {
             fn emit(&mut self, $($arg: $T),*)
-                -> std::result::Result<(), crate::error::Error<W::Error>>
+                -> std::result::Result<(), super::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
-                crate::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
+                super::encoding::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
             }
         }
         op! { $Trait { $($rest)* } }
@@ -116,12 +131,14 @@ macro_rules! op {
         impl<W> $Trait<$($T),*> for W where W: mitte_core::EmitSlice {
             type Return = $R;
             fn emit(&mut self, $($arg: $T),*)
-                -> std::result::Result<$R, crate::error::Error<W::Error>>
+                -> std::result::Result<$R, super::error::Error<W::Error>>
             {
                 #![allow(unused_parens)]
-                crate::encode::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
+                super::encoding::Encode::<$enc, _>::encode(self, ( $($arg),* ), ( $($e),* ))
             }
         }
         op! { $Trait => $R { $($rest)* } }
     };
 }
+
+pub(crate) use op;

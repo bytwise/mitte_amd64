@@ -1,9 +1,11 @@
 extern crate mitte_amd64;
 extern crate capstone;
 
-use mitte_amd64::{Emit, Error};
-use mitte_amd64::reg::*;
-use mitte_amd64::operand::{Operand, byte_pointer, word_pointer, dword_pointer, qword_pointer};
+use mitte_amd64::x86_64::error::Error;
+use mitte_amd64::x86_64::base::Emit;
+use mitte_amd64::x86_64::reg::*;
+use mitte_amd64::x86_64::operand::Operand;
+use mitte_amd64::x86_64::operand::{byte_pointer, word_pointer, dword_pointer, qword_pointer};
 
 use capstone::Capstone;
 use capstone::arch::BuildsCapstone;

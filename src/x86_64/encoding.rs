@@ -1,9 +1,9 @@
 use mitte_core::EmitSlice;
 
-use crate::common::*;
-use crate::reg::{Reg8, Reg16, Reg32, Reg64};
-use crate::ptr::{Mem, Byte, Word, DWord, QWord};
-use crate::error::Error;
+use super::common::*;
+use super::reg::{Reg8, Reg16, Reg32, Reg64};
+use super::ptr::{Mem, Byte, Word, DWord, QWord};
+use super::error::Error;
 use crate::buffer::Buffer;
 
 

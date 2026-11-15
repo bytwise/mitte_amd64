@@ -1,6 +1,6 @@
-use crate::reg::{Reg8, Reg16, Reg32, Reg64};
-use crate::ptr::{Byte, Word, DWord, QWord};
-use crate::ptr::Pointer;
+use super::reg::{Reg8, Reg16, Reg32, Reg64};
+use super::ptr::{Byte, Word, DWord, QWord};
+use super::ptr::Pointer;
 
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]

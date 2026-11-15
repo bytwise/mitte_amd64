@@ -1,10 +1,10 @@
 use std::ops;
 
-use crate::reg::Reg64;
+use crate::x86_64::reg::Reg64;
 
 
 mod private {
-    use crate::common::{Rex, Args};
+    use crate::x86_64::common::{Rex, Args};
 
     pub trait MemSealed: Clone + Rex + Args {}
 
