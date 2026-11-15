@@ -1,10 +1,12 @@
 pub mod error;
+pub mod types;
 pub mod reg;
 pub mod ptr;
-pub mod operand;
 pub mod fixup;
 
 pub use self::error::Error;
+pub use self::types::*;
+pub use self::common::Register;
 
 pub mod base;
 

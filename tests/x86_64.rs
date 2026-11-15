@@ -3,155 +3,16 @@ extern crate capstone;
 
 use mitte_amd64::x86_64::error::Error;
 use mitte_amd64::x86_64::base::Emit;
+use mitte_amd64::x86_64::Register;
+use mitte_amd64::x86_64::types::*;
 use mitte_amd64::x86_64::reg::*;
-use mitte_amd64::x86_64::operand::Operand;
-use mitte_amd64::x86_64::operand::{byte_pointer, word_pointer, dword_pointer, qword_pointer};
+use mitte_amd64::x86_64::ptr::{Byte, Word, DWord, QWord, Pointer};
 
 use capstone::Capstone;
 use capstone::arch::BuildsCapstone;
 use capstone::arch::x86::ArchMode;
 
 type Result<T> = std::result::Result<T, Error<std::convert::Infallible>>;
-
-
-const REGS8: [(Reg8, &'static str); 20] = [
-    (Al, "al"),
-    (Cl, "cl"),
-    (Dl, "dl"),
-    (Bl, "bl"),
-    (Ah, "ah"),
-    (Ch, "ch"),
-    (Dh, "dh"),
-    (Bh, "bh"),
-    (R8b, "r8b"),
-    (R9b, "r9b"),
-    (R10b, "r10b"),
-    (R11b, "r11b"),
-    (R12b, "r12b"),
-    (R13b, "r13b"),
-    (R14b, "r14b"),
-    (R15b, "r15b"),
-    (Spl, "spl"),
-    (Bpl, "bpl"),
-    (Sil, "sil"),
-    (Dil, "dil"),
-];
-
-const SIMPLE_REGS8: [(Reg8, &'static str); 8] = [
-    (Al, "al"),
-    (Cl, "cl"),
-    (Dl, "dl"),
-    (Bl, "bl"),
-    (Ah, "ah"),
-    (Ch, "ch"),
-    (Dh, "dh"),
-    (Bh, "bh"),
-];
-
-const REX_REGS8: [(Reg8, &'static str); 12] = [
-    (Al, "al"),
-    (Cl, "cl"),
-    (Dl, "dl"),
-    (Bl, "bl"),
-    (R8b, "r8b"),
-    (R9b, "r9b"),
-    (R10b, "r10b"),
-    (R11b, "r11b"),
-    (R12b, "r12b"),
-    (R13b, "r13b"),
-    (R14b, "r14b"),
-    (R15b, "r15b"),
-];
-
-const REGS16: [(Reg16, &'static str); 16] = [
-    (Ax, "ax"),
-    (Cx, "cx"),
-    (Dx, "dx"),
-    (Bx, "bx"),
-    (Sp, "sp"),
-    (Bp, "bp"),
-    (Si, "si"),
-    (Di, "di"),
-    (R8w, "r8w"),
-    (R9w, "r9w"),
-    (R10w, "r10w"),
-    (R11w, "r11w"),
-    (R12w, "r12w"),
-    (R13w, "r13w"),
-    (R14w, "r14w"),
-    (R15w, "r15w"),
-];
-
-const SIMPLE_REGS16: [(Reg16, &'static str); 8] = [
-    (Ax, "ax"),
-    (Cx, "cx"),
-    (Dx, "dx"),
-    (Bx, "bx"),
-    (Sp, "sp"),
-    (Bp, "bp"),
-    (Si, "si"),
-    (Di, "di"),
-];
-
-const REGS32: [(Reg32, &'static str); 16] = [
-    (Eax, "eax"),
-    (Ecx, "ecx"),
-    (Edx, "edx"),
-    (Ebx, "ebx"),
-    (Esp, "esp"),
-    (Ebp, "ebp"),
-    (Esi, "esi"),
-    (Edi, "edi"),
-    (R8d, "r8d"),
-    (R9d, "r9d"),
-    (R10d, "r10d"),
-    (R11d, "r11d"),
-    (R12d, "r12d"),
-    (R13d, "r13d"),
-    (R14d, "r14d"),
-    (R15d, "r15d"),
-];
-
-const SIMPLE_REGS32: [(Reg32, &'static str); 8] = [
-    (Eax, "eax"),
-    (Ecx, "ecx"),
-    (Edx, "edx"),
-    (Ebx, "ebx"),
-    (Esp, "esp"),
-    (Ebp, "ebp"),
-    (Esi, "esi"),
-    (Edi, "edi"),
-];
-
-const REGS64: [(Reg64, &'static str); 16] = [
-    (Rax, "rax"),
-    (Rcx, "rcx"),
-    (Rdx, "rdx"),
-    (Rbx, "rbx"),
-    (Rsp, "rsp"),
-    (Rbp, "rbp"),
-    (Rsi, "rsi"),
-    (Rdi, "rdi"),
-    (R8, "r8"),
-    (R9, "r9"),
-    (R10, "r10"),
-    (R11, "r11"),
-    (R12, "r12"),
-    (R13, "r13"),
-    (R14, "r14"),
-    (R15, "r15"),
-];
-
-const SIMPLE_REGS64: [(Reg64, &'static str); 8] = [
-    (Rax, "rax"),
-    (Rcx, "rcx"),
-    (Rdx, "rdx"),
-    (Rbx, "rbx"),
-    (Rsp, "rsp"),
-    (Rbp, "rbp"),
-    (Rsi, "rsi"),
-    (Rdi, "rdi"),
-];
 
 
 fn print_code(code: &[u8]) {
@@ -163,8 +24,10 @@ fn print_code(code: &[u8]) {
 }
 
 
-fn test_disasm<S>(mnemonic: &str, expected: &[Option<S>], code: &[u8]) where S: AsRef<str> {
-    let capstone = Capstone::new().x86().mode(ArchMode::Mode64).build().unwrap();
+fn test_disasm<S>(mnemonic: &str, expected: S, code: &[u8]) where S: AsRef<str> {
+    let capstone = Capstone::new().x86()
+        .mode(ArchMode::Mode64)
+        .build().unwrap();
     let disasm = match capstone.disasm_all(code, 0x0) {
         Ok(disasm) => disasm,
         Err(error) => {
@@ -173,2524 +36,3070 @@ fn test_disasm<S>(mnemonic: &str, expected: &[Option<S>], code: &[u8]) where S: 
         }
     };
 
-    for (i, e) in disasm.iter().zip(expected) {
-        println!("bytes: {:?}", i.bytes());
-        assert_eq!(mnemonic, i.mnemonic().unwrap());
-        assert_eq!(e.as_ref().map(S::as_ref), i.op_str(),
+    for (i, e) in disasm.iter().zip(std::iter::once(expected)) {
+        println!("disasm: {:?} {:?}", i.mnemonic(), i.op_str());
+        assert_eq!(mnemonic, i.mnemonic().unwrap(),
+            "{} {:?} != {} {:?}",
+            mnemonic, e.as_ref(),
+            i.mnemonic().unwrap(), i.op_str().unwrap());
+        assert_eq!(Some(e.as_ref()), i.op_str(),
             "{} {:?} != {0} {:?}", mnemonic,
-            e.as_ref().map(S::as_ref).unwrap(), i.op_str().unwrap());
+            e.as_ref(), i.op_str().unwrap());
     }
-    assert_eq!(disasm.len() as usize, expected.len());
+    assert_eq!(disasm.len(), 1);
 }
 
 
-fn test_reg<'a, F, RS, AF, DF, R, T, S>(mnemonic: &str, f: F, regs: RS, arg: AF, disasm: DF)
-    where F: Fn(&mut Vec<u8>, T) -> Result<()>,
-          RS: AsRef<[(R, &'static str)]>,
-          AF: Fn(R) -> T,
-          DF: Fn(&'a str) -> S,
-          R: Copy,
-          S: 'a + AsRef<str>
+fn are_registers_compatible<R1, R2>(r1: R1, r2: R2) -> bool
+where R1: Register, R2: Register
 {
-    let mut code = Vec::new();
-
-    for &(r, _) in regs.as_ref() {
-        f(&mut code, arg(r)).unwrap();
+    if r1.needs_rex() && !r2.is_encodable_with_rex() {
+        return false;
     }
-
-    print_code(&code);
-
-    let mut expected_disasm = Vec::new();
-
-    for &(_, s) in regs.as_ref() {
-        expected_disasm.push(Some(disasm(s)));
+    if r2.needs_rex() && !r1.is_encodable_with_rex() {
+        return false;
     }
-
-    test_disasm(mnemonic, &expected_disasm, &code);
+    true
 }
 
-fn test_reg_reg<'a, F, RS1, RS2, AF, DF, R1, R2, T, S>(mnemonic: &str, f: F, regs1: RS1, regs2: RS2, arg: AF, disasm: DF)
-    where F: Fn(&mut Vec<u8>, T) -> Result<()>,
-          RS1: AsRef<[(R1, &'static str)]>,
-          RS2: AsRef<[(R2, &'static str)]>,
-          AF: Fn(R1, R2) -> T,
-          DF: Fn(&'a str, &'a str) -> S,
-          R1: Copy,
-          R2: Copy,
-          S: 'a + AsRef<str>
-{
-    let mut code = Vec::new();
 
-    for &(r1, _) in regs1.as_ref() {
-        for &(r2, _) in regs2.as_ref() {
-            f(&mut code, arg(r1, r2)).unwrap();
-        }
-    }
-
-    print_code(&code);
-
-    let mut expected_disasm = Vec::new();
-
-    for &(_, s1) in regs1.as_ref() {
-        for &(_, s2) in regs2.as_ref() {
-            expected_disasm.push(Some(disasm(s1, s2)));
-        }
-    }
-
-    test_disasm(mnemonic, &expected_disasm, &code);
+fn is_signed_nbit_integer(n: u8, value: impl Into<i64>) -> bool {
+    let value = value.into();
+    ((-1) << (n - 1)) <= value && value < (1 << (n - 1))
 }
 
-fn test_reg_reg_reg<'a, F, RS1, RS2, RS3, AF, DF, R1, R2, R3, T, S>(mnemonic: &str, f: F, regs1: RS1, regs2: RS2, regs3: RS3, arg: AF, disasm: DF)
-    where F: Fn(&mut Vec<u8>, T) -> Result<()>,
-          RS1: AsRef<[(R1, &'static str)]>,
-          RS2: AsRef<[(R2, &'static str)]>,
-          RS3: AsRef<[(R3, &'static str)]>,
-          AF: Fn(R1, R2, R3) -> T,
-          DF: Fn(&'a str, &'a str, &'a str) -> S,
-          R1: Copy,
-          R2: Copy,
-          R3: Copy,
-          S: 'a + AsRef<str>
-{
-    let mut code = Vec::new();
 
-    for &(r1, _) in regs1.as_ref() {
-        for &(r2, _) in regs2.as_ref() {
-            for &(r3, _) in regs3.as_ref() {
-                f(&mut code, arg(r1, r2, r3)).unwrap();
+trait TestCases: Sized + Copy + 'static {
+    fn test_cases() -> Vec<(Self, String)>;
+}
+
+impl TestCases for Condition {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (Condition::O, "o".into()),
+            (Condition::No, "no".into()),
+            (Condition::B, "b".into()),
+            (Condition::Ae, "ae".into()),
+            (Condition::E, "e".into()),
+            (Condition::Ne, "ne".into()),
+            (Condition::Be, "be".into()),
+            (Condition::A, "a".into()),
+            (Condition::S, "s".into()),
+            (Condition::Ns, "ns".into()),
+            (Condition::P, "p".into()),
+            (Condition::Np, "np".into()),
+            (Condition::L, "l".into()),
+            (Condition::Ge, "ge".into()),
+            (Condition::Le, "le".into()),
+            (Condition::G, "g".into()),
+        ]
+    }
+}
+
+impl TestCases for u8 {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (0, "0".into()),
+            (1, "1".into()),
+            (31, "0x1f".into()),
+            (32, "0x20".into()),
+            (63, "0x3f".into()),
+            (64, "0x40".into()),
+            (0x7f, "0x7f".into()),
+            (0x80, "0x80".into()),
+        ]
+    }
+}
+
+impl TestCases for i8 {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (0, "0".into()),
+            (1, "1".into()),
+            (31, "0x1f".into()),
+            (32, "0x20".into()),
+            (63, "0x3f".into()),
+            (64, "0x40".into()),
+            (0x7f, "0x7f".into()),
+            (-1, "-1".into()),
+            (-0x80, "-0x80".into()),
+        ]
+    }
+}
+
+impl TestCases for u16 {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (0, "0".into()),
+            (0x80, "0x80".into()),
+            (0x800, "0x800".into()),
+            (0x7fff, "0x7fff".into()),
+            (0x8000, "0x8000".into()),
+            (0xff80, "0xff80".into()),
+            (0xffff, "0xffff".into()),
+        ]
+    }
+}
+
+impl TestCases for u32 {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (0, "0".into()),
+            (0x80, "0x80".into()),
+            (0x8000, "0x8000".into()),
+            (0x80_0000, "0x800000".into()),
+            (0x7fff_ffff, "0x7fffffff".into()),
+            (0x8000_0000, "0x80000000".into()),
+            (0xffff_8000, "0xffff8000".into()),
+            (0xffff_ff80, "0xffffff80".into()),
+            (0xffff_ffff, "0xffffffff".into()),
+        ]
+    }
+}
+
+impl TestCases for i32 {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (0, "0".into()),
+            (0x80, "0x80".into()),
+            (0x8000, "0x8000".into()),
+            (0x80_0000, "0x800000".into()),
+            (0x7fff_ffff, "0x7fffffff".into()),
+            (-0x80, "-0x80".into()),
+            (-0x8000, "-0x8000".into()),
+            (-0x80_0000, "-0x800000".into()),
+            (-0x8000_0000, "-0x80000000".into()),
+        ]
+    }
+}
+
+impl TestCases for u64 {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (0, "0".into()),
+            (0x80, "0x80".into()),
+            (0x8000, "0x8000".into()),
+            (0x80_0000, "0x800000".into()),
+            (0x8000_0000, "0x80000000".into()),
+            (0x8000_0000_0000, "0x800000000000".into()),
+            (0x7fff_ffff_ffff_ffff, "0x7fffffffffffffff".into()),
+            (0x8000_0000_0000_0000, "0x8000000000000000".into()),
+            (0xffff_8000_0000_0000, "0xffff800000000000".into()),
+            (0xffff_ffff_8000_0000, "0xffffffff80000000".into()),
+            (0xffff_ffff_ffff_8000, "0xffffffffffff8000".into()),
+            (0xffff_ffff_ffff_ff80, "0xffffffffffffff80".into()),
+            (0xffff_ffff_ffff_ffff, "0xffffffffffffffff".into()),
+        ]
+    }
+}
+
+impl TestCases for Rel8 {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (0_i8.into(), "0".into()),
+            (8_i8.into(), "8".into()),
+            (0x7f_i8.into(), "0x7f".into()),
+            ((-1_i8).into(), "0xffffffffffffffff".into()),
+            ((-0x8_i8).into(), "0xfffffffffffffff8".into()),
+        ]
+    }
+}
+
+impl TestCases for Rel32 {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (0_i32.into(), "0".into()),
+            (0x80_i32.into(), "0x80".into()),
+            (0x8000_i32.into(), "0x8000".into()),
+            (0x80_0000_i32.into(), "0x800000".into()),
+            (0x7fff_ffff_i32.into(), "0x7fffffff".into()),
+            ((-1_i32).into(), "0xffffffffffffffff".into()),
+            ((-0x80_i32).into(), "0xffffffffffffff80".into()),
+            ((-0x8000_i32).into(), "0xffffffffffff8000".into()),
+            ((-0x80_0000_i32).into(), "0xffffffffff800000".into()),
+            ((-0x800_0000_i32).into(), "0xfffffffff8000000".into()),
+        ]
+    }
+}
+
+impl TestCases for Reg8 {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (Al, "al".into()),
+            (Cl, "cl".into()),
+            (Dl, "dl".into()),
+            (Bl, "bl".into()),
+            (Ah, "ah".into()),
+            (Ch, "ch".into()),
+            (Dh, "dh".into()),
+            (Bh, "bh".into()),
+            (R8b, "r8b".into()),
+            (R9b, "r9b".into()),
+            (R10b, "r10b".into()),
+            (R11b, "r11b".into()),
+            (R12b, "r12b".into()),
+            (R13b, "r13b".into()),
+            (R14b, "r14b".into()),
+            (R15b, "r15b".into()),
+            (Spl, "spl".into()),
+            (Bpl, "bpl".into()),
+            (Sil, "sil".into()),
+            (Dil, "dil".into()),
+        ]
+    }
+}
+
+impl TestCases for Reg16 {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (Ax, "ax".into()),
+            (Cx, "cx".into()),
+            (Dx, "dx".into()),
+            (Bx, "bx".into()),
+            (Sp, "sp".into()),
+            (Bp, "bp".into()),
+            (Si, "si".into()),
+            (Di, "di".into()),
+            (R8w, "r8w".into()),
+            (R9w, "r9w".into()),
+            (R10w, "r10w".into()),
+            (R11w, "r11w".into()),
+            (R12w, "r12w".into()),
+            (R13w, "r13w".into()),
+            (R14w, "r14w".into()),
+            (R15w, "r15w".into()),
+        ]
+    }
+}
+
+impl TestCases for Reg32 {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (Eax, "eax".into()),
+            (Ecx, "ecx".into()),
+            (Edx, "edx".into()),
+            (Ebx, "ebx".into()),
+            (Esp, "esp".into()),
+            (Ebp, "ebp".into()),
+            (Esi, "esi".into()),
+            (Edi, "edi".into()),
+            (R8d, "r8d".into()),
+            (R9d, "r9d".into()),
+            (R10d, "r10d".into()),
+            (R11d, "r11d".into()),
+            (R12d, "r12d".into()),
+            (R13d, "r13d".into()),
+            (R14d, "r14d".into()),
+            (R15d, "r15d".into()),
+        ]
+    }
+}
+
+impl TestCases for Reg64 {
+    fn test_cases() -> Vec<(Self, String)> {
+        vec![
+            (Rax, "rax".into()),
+            (Rcx, "rcx".into()),
+            (Rdx, "rdx".into()),
+            (Rbx, "rbx".into()),
+            (Rsp, "rsp".into()),
+            (Rbp, "rbp".into()),
+            (Rsi, "rsi".into()),
+            (Rdi, "rdi".into()),
+            (R8, "r8".into()),
+            (R9, "r9".into()),
+            (R10, "r10".into()),
+            (R11, "r11".into()),
+            (R12, "r12".into()),
+            (R13, "r13".into()),
+            (R14, "r14".into()),
+            (R15, "r15".into()),
+        ]
+    }
+}
+
+fn pointer_test_cases<P>(size: &str, pointer: fn(Pointer) -> P) -> Vec<(P, String)> {
+    let mut test_cases = Vec::new();
+
+    test_cases.push((pointer(0x42_i8.into()), format!("{size} ptr [0x42]")));
+    test_cases.push((pointer(0x12345678_i32.into()), format!("{size} ptr [0x12345678]")));
+
+    for (r1, s1) in Reg64::test_cases() {
+        test_cases.push((pointer(r1.into()), format!("{size} ptr [{s1}]")));
+        test_cases.push((pointer((r1 + 0x42_i8).into()), format!("{size} ptr [{s1} + 0x42]")));
+        test_cases.push((
+            pointer((r1 + 0x12345678_i32).into()),
+            format!("{size} ptr [{s1} + 0x12345678]")
+        ));
+
+        if r1 != Rsp && r1 != R12 {
+            test_cases.push((pointer((r1*4).into()), format!("{size} ptr [{s1}*4]")));
+            test_cases.push((
+                pointer((r1*4 + 0x42_i8).into()),
+                format!("{size} ptr [{s1}*4 + 0x42]")
+            ));
+            test_cases.push((
+                pointer((r1*4 + 0x12345678_i32).into()),
+                format!("{size} ptr [{s1}*4 + 0x12345678]")
+            ));
+
+            for (r2, s2) in Reg64::test_cases() {
+                if r2 == Rsp || r2 == R12 {
+                    continue;
+                }
+
+                test_cases.push((
+                    pointer((r1 + r2).into()),
+                    format!("{size} ptr [{s1} + {s2}]")
+                ));
+                test_cases.push((
+                    pointer((r1 + r2 + 0x42_i8).into()),
+                    format!("{size} ptr [{s1} + {s2} + 0x42]")
+                ));
+                test_cases.push((
+                    pointer((r1 + r2 + 0x12345678_i32).into()),
+                    format!("{size} ptr [{s1} + {s2} + 0x12345678]")
+                ));
+                test_cases.push((
+                    pointer((r1 + r2*4).into()),
+                    format!("{size} ptr [{s1} + {s2}*4]")
+                ));
+                test_cases.push((
+                    pointer((r1 + r2*4 + 0x42_i8).into()),
+                    format!("{size} ptr [{s1} + {s2}*4 + 0x42]")
+                ));
+                test_cases.push((
+                    pointer((r1 + r2*4 + 0x12345678_i32).into()),
+                    format!("{size} ptr [{s1} + {s2}*4 + 0x12345678]")
+                ));
             }
         }
     }
 
-    print_code(&code);
+    test_cases
+}
 
-    let mut expected_disasm = Vec::new();
-
-    for &(_, s1) in regs1.as_ref() {
-        for &(_, s2) in regs2.as_ref() {
-            for &(_, s3) in regs3.as_ref() {
-                expected_disasm.push(Some(disasm(s1, s2, s3)));
-            }
-        }
+impl TestCases for Byte<Pointer> {
+    fn test_cases() -> Vec<(Self, String)> {
+        pointer_test_cases("byte", |p| Byte(p))
     }
+}
 
-    test_disasm(mnemonic, &expected_disasm, &code);
+impl TestCases for Word<Pointer> {
+    fn test_cases() -> Vec<(Self, String)> {
+        pointer_test_cases("word", |p| Word(p))
+    }
+}
+
+impl TestCases for DWord<Pointer> {
+    fn test_cases() -> Vec<(Self, String)> {
+        pointer_test_cases("dword", |p| DWord(p))
+    }
+}
+
+impl TestCases for QWord<Pointer> {
+    fn test_cases() -> Vec<(Self, String)> {
+        pointer_test_cases("qword", |p| QWord(p))
+    }
 }
 
 
-fn test_unit(mnemonic: &str, f: fn(&mut Vec<u8>) -> Result<()>) {
+#[track_caller]
+fn test0(mnemonic: &str, f: fn(&mut Vec<u8>) -> Result<()>) {
     let mut code = Vec::new();
     f(&mut code).unwrap();
-    let expected_disasm = vec![Some("")];
-    test_disasm(mnemonic, &expected_disasm, &code);
+    test_disasm(mnemonic, "", &code);
 }
 
-
-fn test_imm8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
+#[track_caller]
+fn test1_format_filter<A1>(
+    mnemonic: &str,
+    f: fn(&mut Vec<u8>, A1) -> Result<()>,
+    s: impl Fn(&str) -> String,
+    mut filter: impl FnMut(A1) -> bool
+)
+    where A1: TestCases
+{
     let mut code = Vec::new();
-    f(&mut code, Operand::Imm8(0x42)).unwrap();
-    let expected_disasm = vec![Some("0x42")];
-    test_disasm(mnemonic, &expected_disasm, &code);
+    for (a1, s1) in A1::test_cases() {
+        if filter(a1) {
+            f(&mut code, a1).unwrap();
+            test_disasm(mnemonic, s(&s1), &code);
+            code.clear();
+        }
+    }
 }
 
-fn test_imm16(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
+#[track_caller]
+fn test1_format<A1>(
+    mnemonic: &str,
+    f: fn(&mut Vec<u8>, A1) -> Result<()>,
+    s: impl Fn(&str) -> String
+)
+    where A1: TestCases
+{
+    test1_format_filter(mnemonic, f, s, |_| true);
+}
+
+#[track_caller]
+fn test1<A1>(mnemonic: &str, f: fn(&mut Vec<u8>, A1) -> Result<()>)
+    where A1: TestCases
+{
+    test1_format(mnemonic, f, |s1| format!("{}", s1));
+}
+
+#[track_caller]
+fn test2_format_filter<A1, A2>(
+    mnemonic: &str,
+    f: fn(&mut Vec<u8>, A1, A2) -> Result<()>,
+    s: impl Fn(&str, &str) -> String,
+    mut filter: impl FnMut(A1, A2) -> bool
+)
+    where A1: TestCases, A2: TestCases
+{
     let mut code = Vec::new();
-    f(&mut code, Operand::Imm16(0x1234)).unwrap();
-    let expected_disasm = vec![Some("0x1234")];
-    test_disasm(mnemonic, &expected_disasm, &code);
-}
-
-fn test_imm32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
-    let mut code = Vec::new();
-    f(&mut code, Operand::Imm32(0x12345678)).unwrap();
-    let expected_disasm = vec![Some("0x12345678")];
-    test_disasm(mnemonic, &expected_disasm, &code);
-}
-
-
-fn test_off8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
-    let mut code = Vec::new();
-    f(&mut code, Operand::Offset8(0x42)).unwrap();
-    let expected_disasm = vec![Some("0x42")];
-    test_disasm(mnemonic, &expected_disasm, &code);
-}
-
-fn test_off32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
-    let mut code = Vec::new();
-    f(&mut code, Operand::Offset32(0x12345678)).unwrap();
-    let expected_disasm = vec![Some("0x12345678")];
-    test_disasm(mnemonic, &expected_disasm, &code);
-}
-
-
-fn test_reg8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
-    test_reg(mnemonic, f, REGS8, |r| Operand::Reg8(r), |s| s);
-}
-
-fn test_reg16(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
-    test_reg(mnemonic, f, REGS16, |r| Operand::Reg16(r), |s| s);
-}
-
-fn test_reg32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
-    test_reg(mnemonic, f, REGS32, |r| Operand::Reg32(r), |s| s);
-}
-
-fn test_reg64(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
-    test_reg(mnemonic, f, REGS64, |r| Operand::Reg64(r), |s| s);
-}
-
-
-fn test_byte_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    let mut code = Vec::new();
-    f(&mut code, byte_pointer(0x42i8)).unwrap();
-    let expected_disasm = vec![Some("byte ptr [0x42]")];
-    test_disasm(mnemonic, &expected_disasm, &code);
-
-    let mut code = Vec::new();
-    f(&mut code, byte_pointer(0x12345678)).unwrap();
-    let expected_disasm = vec![Some("byte ptr [0x12345678]")];
-    test_disasm(mnemonic, &expected_disasm, &code);
-
-    test_reg(mnemonic, f, REGS64,
-             |r| byte_pointer(r),
-             |s| format!("byte ptr [{}]", s));
-
-    test_reg(mnemonic, f, &index_regs,
-             |r| byte_pointer(r*4),
-             |s| format!("byte ptr [{}*4]", s));
-
-    test_reg(mnemonic, f, REGS64,
-             |r| byte_pointer(r + 0x42i8),
-             |s| format!("byte ptr [{} + 0x42]", s));
-
-    test_reg(mnemonic, f, REGS64,
-             |r| byte_pointer(r + 0x12345678),
-             |s| format!("byte ptr [{} + 0x12345678]", s));
-
-    test_reg(mnemonic, f, &index_regs,
-             |r| byte_pointer(r*4 + 0x42i8),
-             |s| format!("byte ptr [{}*4 + 0x42]", s));
-
-    test_reg(mnemonic, f, &index_regs,
-             |r| byte_pointer(r*4 + 0x12345678),
-             |s| format!("byte ptr [{}*4 + 0x12345678]", s));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| byte_pointer(r1 + r2),
-                 |s1, s2| format!("byte ptr [{} + {}]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| byte_pointer(r1 + r2 + 0x42i8),
-                 |s1, s2| format!("byte ptr [{} + {} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| byte_pointer(r1 + r2 + 0x12345678),
-                 |s1, s2| format!("byte ptr [{} + {} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| byte_pointer(r1 + r2),
-                 |s1, s2| format!("byte ptr [{} + {}]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| byte_pointer(r1 + r2 + 0x42i8),
-                 |s1, s2| format!("byte ptr [{} + {} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| byte_pointer(r1 + r2 + 0x12345678),
-                 |s1, s2| format!("byte ptr [{} + {} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| byte_pointer(r1 + r2*2),
-                 |s1, s2| format!("byte ptr [{} + {}*2]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| byte_pointer(r1 + r2*2 + 0x42i8),
-                 |s1, s2| format!("byte ptr [{} + {}*2 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| byte_pointer(r1 + r2*2 + 0x12345678),
-                 |s1, s2| format!("byte ptr [{} + {}*2 + 0x12345678]", s1, s2));
-}
-
-
-fn test_word_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    let mut code = Vec::new();
-    f(&mut code, word_pointer(0x42i8)).unwrap();
-    print_code(&code);
-    let expected_disasm = vec![Some("word ptr [0x42]")];
-    test_disasm(mnemonic, &expected_disasm, &code);
-
-    let mut code = Vec::new();
-    f(&mut code, word_pointer(0x12345678)).unwrap();
-    print_code(&code);
-    let expected_disasm = vec![Some("word ptr [0x12345678]")];
-    test_disasm(mnemonic, &expected_disasm, &code);
-
-    test_reg(mnemonic, f, REGS64,
-             |r| word_pointer(r),
-             |s| format!("word ptr [{}]", s));
-
-    test_reg(mnemonic, f, &index_regs,
-             |r| word_pointer(r*4),
-             |s| format!("word ptr [{}*4]", s));
-
-    test_reg(mnemonic, f, REGS64,
-             |r| word_pointer(r + 0x42i8),
-             |s| format!("word ptr [{} + 0x42]", s));
-
-    test_reg(mnemonic, f, REGS64,
-             |r| word_pointer(r + 0x12345678),
-             |s| format!("word ptr [{} + 0x12345678]", s));
-
-    test_reg(mnemonic, f, &index_regs,
-             |r| word_pointer(r*4 + 0x42i8),
-             |s| format!("word ptr [{}*4 + 0x42]", s));
-
-    test_reg(mnemonic, f, &index_regs,
-             |r| word_pointer(r*4 + 0x12345678),
-             |s| format!("word ptr [{}*4 + 0x12345678]", s));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| word_pointer(r1 + r2),
-                 |s1, s2| format!("word ptr [{} + {}]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| word_pointer(r1 + r2 + 0x42i8),
-                 |s1, s2| format!("word ptr [{} + {} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| word_pointer(r1 + r2 + 0x12345678),
-                 |s1, s2| format!("word ptr [{} + {} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| word_pointer(r1 + r2),
-                 |s1, s2| format!("word ptr [{} + {}]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| word_pointer(r1 + r2 + 0x42i8),
-                 |s1, s2| format!("word ptr [{} + {} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| word_pointer(r1 + r2*2 + 0x12345678),
-                 |s1, s2| format!("word ptr [{} + {}*2 + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| word_pointer(r1 + r2*2),
-                 |s1, s2| format!("word ptr [{} + {}*2]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| word_pointer(r1 + r2*2 + 0x42i8),
-                 |s1, s2| format!("word ptr [{} + {}*2 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| word_pointer(r1 + r2*2 + 0x12345678),
-                 |s1, s2| format!("word ptr [{} + {}*2 + 0x12345678]", s1, s2));
-}
-
-
-fn test_dword_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    let mut code = Vec::new();
-    f(&mut code, dword_pointer(0x42i8)).unwrap();
-    let expected_disasm = vec![Some("dword ptr [0x42]")];
-    test_disasm(mnemonic, &expected_disasm, &code);
-
-    let mut code = Vec::new();
-    f(&mut code, dword_pointer(0x12345678)).unwrap();
-    let expected_disasm = vec![Some("dword ptr [0x12345678]")];
-    test_disasm(mnemonic, &expected_disasm, &code);
-
-    test_reg(mnemonic, f, REGS64,
-             |r| dword_pointer(r),
-             |s| format!("dword ptr [{}]", s));
-
-    test_reg(mnemonic, f, &index_regs,
-             |r| dword_pointer(r*4),
-             |s| format!("dword ptr [{}*4]", s));
-
-    test_reg(mnemonic, f, REGS64,
-             |r| dword_pointer(r + 0x42i8),
-             |s| format!("dword ptr [{} + 0x42]", s));
-
-    test_reg(mnemonic, f, REGS64,
-             |r| dword_pointer(r + 0x12345678),
-             |s| format!("dword ptr [{} + 0x12345678]", s));
-
-    test_reg(mnemonic, f, &index_regs,
-             |r| dword_pointer(r*4 + 0x42i8),
-             |s| format!("dword ptr [{}*4 + 0x42]", s));
-
-    test_reg(mnemonic, f, &index_regs,
-             |r| dword_pointer(r*4 + 0x12345678),
-             |s| format!("dword ptr [{}*4 + 0x12345678]", s));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| dword_pointer(r1 + r2),
-                 |s1, s2| format!("dword ptr [{} + {}]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| dword_pointer(r1 + r2 + 0x42i8),
-                 |s1, s2| format!("dword ptr [{} + {} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| dword_pointer(r1 + r2 + 0x12345678),
-                 |s1, s2| format!("dword ptr [{} + {} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| dword_pointer(r1 + r2),
-                 |s1, s2| format!("dword ptr [{} + {}]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| dword_pointer(r1 + r2 + 0x42i8),
-                 |s1, s2| format!("dword ptr [{} + {} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| dword_pointer(r1 + r2 + 0x12345678),
-                 |s1, s2| format!("dword ptr [{} + {} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| dword_pointer(r1 + r2*2),
-                 |s1, s2| format!("dword ptr [{} + {}*2]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| dword_pointer(r1 + r2*2 + 0x42i8),
-                 |s1, s2| format!("dword ptr [{} + {}*2 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| dword_pointer(r1 + r2*2 + 0x12345678),
-                 |s1, s2| format!("dword ptr [{} + {}*2 + 0x12345678]", s1, s2));
-}
-
-
-fn test_qword_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    let mut code = Vec::new();
-    f(&mut code, qword_pointer(0x42i8)).unwrap();
-    print_code(&code);
-    let expected_disasm = vec![Some("qword ptr [0x42]")];
-    test_disasm(mnemonic, &expected_disasm, &code);
-
-    let mut code = Vec::new();
-    f(&mut code, qword_pointer(0x12345678)).unwrap();
-    print_code(&code);
-    let expected_disasm = vec![Some("qword ptr [0x12345678]")];
-    test_disasm(mnemonic, &expected_disasm, &code);
-
-    test_reg(mnemonic, f, REGS64,
-             |r| qword_pointer(r),
-             |s| format!("qword ptr [{}]", s));
-
-    test_reg(mnemonic, f, &index_regs,
-             |r| qword_pointer(r*4),
-             |s| format!("qword ptr [{}*4]", s));
-
-    test_reg(mnemonic, f, REGS64,
-             |r| qword_pointer(r + 0x42i8),
-             |s| format!("qword ptr [{} + 0x42]", s));
-
-    test_reg(mnemonic, f, REGS64,
-             |r| qword_pointer(r + 0x12345678),
-             |s| format!("qword ptr [{} + 0x12345678]", s));
-
-    test_reg(mnemonic, f, &index_regs,
-             |r| qword_pointer(r*4 + 0x42i8),
-             |s| format!("qword ptr [{}*4 + 0x42]", s));
-
-    test_reg(mnemonic, f, &index_regs,
-             |r| qword_pointer(r*4 + 0x12345678),
-             |s| format!("qword ptr [{}*4 + 0x12345678]", s));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| qword_pointer(r1 + r2),
-                 |s1, s2| format!("qword ptr [{} + {}]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| qword_pointer(r1 + r2 + 0x42i8),
-                 |s1, s2| format!("qword ptr [{} + {} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| qword_pointer(r1 + r2 + 0x12345678),
-                 |s1, s2| format!("qword ptr [{} + {} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| qword_pointer(r1 + r2),
-                 |s1, s2| format!("qword ptr [{} + {}]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| qword_pointer(r1 + r2 + 0x42i8),
-                 |s1, s2| format!("qword ptr [{} + {} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| qword_pointer(r1 + r2 + 0x12345678),
-                 |s1, s2| format!("qword ptr [{} + {} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| qword_pointer(r1 + r2*2),
-                 |s1, s2| format!("qword ptr [{} + {}*2]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| qword_pointer(r1 + r2*2 + 0x42i8),
-                 |s1, s2| format!("qword ptr [{} + {}*2 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, f,
-                 &REGS64, &index_regs,
-                 |r1, r2| qword_pointer(r1 + r2*2 + 0x12345678),
-                 |s1, s2| format!("qword ptr [{} + {}*2 + 0x12345678]", s1, s2));
-}
-
-
-fn test_reg8_imm8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg(mnemonic, |v, r| f(v, r, Operand::Imm8(0x42)),
-             REGS8,
-             |r| Operand::Reg8(r),
-             |s| format!("{}, 0x42", s));
-}
-
-fn test_reg16_imm16(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg(mnemonic, |v, r| f(v, r, Operand::Imm16(0x1234)),
-             REGS16,
-             |r| Operand::Reg16(r),
-             |s| format!("{}, 0x1234", s));
-}
-
-fn test_reg32_imm32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg(mnemonic, |v, r| f(v, r, Operand::Imm32(0x12345678)),
-             REGS32,
-             |r| Operand::Reg32(r),
-             |s| format!("{}, 0x12345678", s));
-}
-
-fn test_reg64_imm32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg(mnemonic, |v, r| f(v, r, Operand::Imm32(0x12345678)),
-             REGS64,
-             |r| Operand::Reg64(r),
-             |s| format!("{}, 0x12345678", s));
-}
-
-fn test_reg64_imm64(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg(mnemonic, |v, r| f(v, r, Operand::Imm64(0x123456789abcdef0)),
-             REGS64,
-             |r| Operand::Reg64(r),
-             |s| format!("{}, 0x123456789abcdef0", s));
-}
-
-
-fn test_reg16_imm8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg(mnemonic, |v, r| f(v, r, Operand::Imm8(0x42)),
-             REGS16,
-             |r| Operand::Reg16(r),
-             |s| format!("{}, 0x42", s));
-}
-
-fn test_reg32_imm8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg(mnemonic, |v, r| f(v, r, Operand::Imm8(0x42)),
-             REGS32,
-             |r| Operand::Reg32(r),
-             |s| format!("{}, 0x42", s));
-}
-
-fn test_reg64_imm8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg(mnemonic, |v, r| f(v, r, Operand::Imm8(0x42)),
-             REGS64,
-             |r| Operand::Reg64(r),
-             |s| format!("{}, 0x42", s));
-}
-
-
-fn test_reg8_reg8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg_reg(mnemonic, |v, (r1, r2)| f(v, r1, r2),
-                 SIMPLE_REGS8, SIMPLE_REGS8,
-                 |r1, r2| (Operand::Reg8(r1), Operand::Reg8(r2)),
-                 |s1, s2| format!("{}, {}", s1, s2));
-    test_reg_reg(mnemonic, |v, (r1, r2)| f(v, r1, r2),
-                 REX_REGS8, REX_REGS8,
-                 |r1, r2| (Operand::Reg8(r1), Operand::Reg8(r2)),
-                 |s1, s2| format!("{}, {}", s1, s2));
-}
-
-fn test_reg16_reg16(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg_reg(mnemonic, |v, (r1, r2)| f(v, r1, r2),
-                 REGS16, REGS16,
-                 |r1, r2| (Operand::Reg16(r1), Operand::Reg16(r2)),
-                 |s1, s2| format!("{}, {}", s1, s2));
-}
-
-fn test_reg32_reg32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg_reg(mnemonic, |v, (r1, r2)| f(v, r1, r2),
-                 REGS32, REGS32,
-                 |r1, r2| (Operand::Reg32(r1), Operand::Reg32(r2)),
-                 |s1, s2| format!("{}, {}", s1, s2));
-}
-
-fn test_reg64_reg64(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg_reg(mnemonic, |v, (r1, r2)| f(v, r1, r2),
-                 REGS64, REGS64,
-                 |r1, r2| (Operand::Reg64(r1), Operand::Reg64(r2)),
-                 |s1, s2| format!("{}, {}", s1, s2));
-}
-
-
-fn test_reg16_reg8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg_reg(mnemonic, |v, (r1, r2)| f(v, r1, r2),
-                 SIMPLE_REGS16, SIMPLE_REGS8,
-                 |r1, r2| (Operand::Reg16(r1), Operand::Reg8(r2)),
-                 |s1, s2| format!("{}, {}", s1, s2));
-    test_reg_reg(mnemonic, |v, (r1, r2)| f(v, r1, r2),
-                 REGS16, REX_REGS8,
-                 |r1, r2| (Operand::Reg16(r1), Operand::Reg8(r2)),
-                 |s1, s2| format!("{}, {}", s1, s2));
-}
-
-fn test_reg32_reg8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg_reg(mnemonic, |v, (r1, r2)| f(v, r1, r2),
-                 SIMPLE_REGS32, SIMPLE_REGS8,
-                 |r1, r2| (Operand::Reg32(r1), Operand::Reg8(r2)),
-                 |s1, s2| format!("{}, {}", s1, s2));
-    test_reg_reg(mnemonic, |v, (r1, r2)| f(v, r1, r2),
-                 REGS32, REX_REGS8,
-                 |r1, r2| (Operand::Reg32(r1), Operand::Reg8(r2)),
-                 |s1, s2| format!("{}, {}", s1, s2));
-}
-
-fn test_reg64_reg8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg_reg(mnemonic, |v, (r1, r2)| f(v, r1, r2),
-                 REGS64, REX_REGS8,
-                 |r1, r2| (Operand::Reg64(r1), Operand::Reg8(r2)),
-                 |s1, s2| format!("{}, {}", s1, s2));
-}
-
-
-fn test_reg32_reg16(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg_reg(mnemonic, |v, (r1, r2)| f(v, r1, r2),
-                 REGS32, REGS16,
-                 |r1, r2| (Operand::Reg32(r1), Operand::Reg16(r2)),
-                 |s1, s2| format!("{}, {}", s1, s2));
-}
-
-fn test_reg64_reg16(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg_reg(mnemonic, |v, (r1, r2)| f(v, r1, r2),
-                 REGS64, REGS16,
-                 |r1, r2| (Operand::Reg64(r1), Operand::Reg16(r2)),
-                 |s1, s2| format!("{}, {}", s1, s2));
-}
-
-
-fn test_reg8_byte_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-    let simple_index_regs = SIMPLE_REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS8,
-             |r1| (Operand::Reg8(r1), byte_pointer(0x42i8)),
-             |s1| format!("{}, byte ptr [0x42]", s1));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS8,
-             |r1| (Operand::Reg8(r1), byte_pointer(0x12345678)),
-             |s1| format!("{}, byte ptr [0x12345678]", s1));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS8, SIMPLE_REGS64,
-                 |r1, r2| (Operand::Reg8(r1), byte_pointer(r2)),
-                 |s1, s2| format!("{}, byte ptr [{}]", s1, s2));
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REX_REGS8, REGS64,
-                 |r1, r2| (Operand::Reg8(r1), byte_pointer(r2)),
-                 |s1, s2| format!("{}, byte ptr [{}]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS8, &simple_index_regs,
-                 |r1, r2| (Operand::Reg8(r1), byte_pointer(r2*4)),
-                 |s1, s2| format!("{}, byte ptr [{}*4]", s1, s2));
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REX_REGS8, &index_regs,
-                 |r1, r2| (Operand::Reg8(r1), byte_pointer(r2*4)),
-                 |s1, s2| format!("{}, byte ptr [{}*4]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS8, SIMPLE_REGS64,
-                 |r1, r2| (Operand::Reg8(r1), byte_pointer(r2 + 0x42i8)),
-                 |s1, s2| format!("{}, byte ptr [{} + 0x42]", s1, s2));
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REX_REGS8, REGS64,
-                 |r1, r2| (Operand::Reg8(r1), byte_pointer(r2 + 0x42i8)),
-                 |s1, s2| format!("{}, byte ptr [{} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS8, SIMPLE_REGS64,
-                 |r1, r2| (Operand::Reg8(r1), byte_pointer(r2 + 0x12345678)),
-                 |s1, s2| format!("{}, byte ptr [{} + 0x12345678]", s1, s2));
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REX_REGS8, REGS64,
-                 |r1, r2| (Operand::Reg8(r1), byte_pointer(r2 + 0x12345678)),
-                 |s1, s2| format!("{}, byte ptr [{} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS8, &simple_index_regs,
-                 |r1, r2| (Operand::Reg8(r1), byte_pointer(r2*4 + 0x42i8)),
-                 |s1, s2| format!("{}, byte ptr [{}*4 + 0x42]", s1, s2));
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REX_REGS8, &index_regs,
-                 |r1, r2| (Operand::Reg8(r1), byte_pointer(r2*4 + 0x42i8)),
-                 |s1, s2| format!("{}, byte ptr [{}*4 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS8, &simple_index_regs,
-                 |r1, r2| (Operand::Reg8(r1), byte_pointer(r2*4 + 0x12345678)),
-                 |s1, s2| format!("{}, byte ptr [{}*4 + 0x12345678]", s1, s2));
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REX_REGS8, &index_regs,
-                 |r1, r2| (Operand::Reg8(r1), byte_pointer(r2*4 + 0x12345678)),
-                 |s1, s2| format!("{}, byte ptr [{}*4 + 0x12345678]", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS8, SIMPLE_REGS64, &simple_index_regs,
-                     |r1, r2, r3| (Operand::Reg8(r1), byte_pointer(r2 + r3*4)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4]", s1, s2, s3));
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REX_REGS8, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg8(r1), byte_pointer(r2 + r3*4)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS8, SIMPLE_REGS64, &simple_index_regs,
-                     |r1, r2, r3| (Operand::Reg8(r1), byte_pointer(r2 + r3*4 + 0x42i8)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4 + 0x42]", s1, s2, s3));
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REX_REGS8, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg8(r1), byte_pointer(r2 + r3*4 + 0x42i8)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4 + 0x42]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS8, SIMPLE_REGS64, &simple_index_regs,
-                     |r1, r2, r3| (Operand::Reg8(r1), byte_pointer(r2 + r3*4 + 0x12345678)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4 + 0x12345678]", s1, s2, s3));
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REX_REGS8, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg8(r1), byte_pointer(r2 + r3*4 + 0x12345678)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4 + 0x12345678]", s1, s2, s3));
-}
-
-
-fn test_reg16_word_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS16,
-             |r1| (Operand::Reg16(r1), word_pointer(0x42i8)),
-             |s1| format!("{}, word ptr [0x42]", s1));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS16,
-             |r1| (Operand::Reg16(r1), word_pointer(0x12345678)),
-             |s1| format!("{}, word ptr [0x12345678]", s1));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS16, REGS64,
-                 |r1, r2| (Operand::Reg16(r1), word_pointer(r2)),
-                 |s1, s2| format!("{}, word ptr [{}]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS16, &index_regs,
-                 |r1, r2| (Operand::Reg16(r1), word_pointer(r2*4)),
-                 |s1, s2| format!("{}, word ptr [{}*4]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS16, REGS64,
-                 |r1, r2| (Operand::Reg16(r1), word_pointer(r2 + 0x42i8)),
-                 |s1, s2| format!("{}, word ptr [{} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS16, REGS64,
-                 |r1, r2| (Operand::Reg16(r1), word_pointer(r2 + 0x12345678)),
-                 |s1, s2| format!("{}, word ptr [{} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS16, &index_regs,
-                 |r1, r2| (Operand::Reg16(r1), word_pointer(r2*4 + 0x42i8)),
-                 |s1, s2| format!("{}, word ptr [{}*4 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS16, &index_regs,
-                 |r1, r2| (Operand::Reg16(r1), word_pointer(r2*4 + 0x12345678)),
-                 |s1, s2| format!("{}, word ptr [{}*4 + 0x12345678]", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS16, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg16(r1), word_pointer(r2 + r3*4)),
-                     |s1, s2, s3| format!("{}, word ptr [{} + {}*4]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS16, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg16(r1), word_pointer(r2 + r3*4 + 0x42i8)),
-                     |s1, s2, s3| format!("{}, word ptr [{} + {}*4 + 0x42]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS16, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg16(r1), word_pointer(r2 + r3*4 + 0x12345678)),
-                     |s1, s2, s3| format!("{}, word ptr [{} + {}*4 + 0x12345678]", s1, s2, s3));
-}
-
-
-fn test_reg32_dword_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS32,
-             |r1| (Operand::Reg32(r1), dword_pointer(0x42i8)),
-             |s1| format!("{}, dword ptr [0x42]", s1));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS32,
-             |r1| (Operand::Reg32(r1), dword_pointer(0x12345678)),
-             |s1| format!("{}, dword ptr [0x12345678]", s1));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, REGS64,
-                 |r1, r2| (Operand::Reg32(r1), dword_pointer(r2)),
-                 |s1, s2| format!("{}, dword ptr [{}]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, &index_regs,
-                 |r1, r2| (Operand::Reg32(r1), dword_pointer(r2*4)),
-                 |s1, s2| format!("{}, dword ptr [{}*4]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, REGS64,
-                 |r1, r2| (Operand::Reg32(r1), dword_pointer(r2 + 0x42i8)),
-                 |s1, s2| format!("{}, dword ptr [{} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, REGS64,
-                 |r1, r2| (Operand::Reg32(r1), dword_pointer(r2 + 0x12345678)),
-                 |s1, s2| format!("{}, dword ptr [{} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, &index_regs,
-                 |r1, r2| (Operand::Reg32(r1), dword_pointer(r2*4 + 0x42i8)),
-                 |s1, s2| format!("{}, dword ptr [{}*4 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, &index_regs,
-                 |r1, r2| (Operand::Reg32(r1), dword_pointer(r2*4 + 0x12345678)),
-                 |s1, s2| format!("{}, dword ptr [{}*4 + 0x12345678]", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS32, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg32(r1), dword_pointer(r2 + r3*4)),
-                     |s1, s2, s3| format!("{}, dword ptr [{} + {}*4]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS32, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg32(r1), dword_pointer(r2 + r3*4 + 0x42i8)),
-                     |s1, s2, s3| format!("{}, dword ptr [{} + {}*4 + 0x42]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS32, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg32(r1), dword_pointer(r2 + r3*4 + 0x12345678)),
-                     |s1, s2, s3| format!("{}, dword ptr [{} + {}*4 + 0x12345678]", s1, s2, s3));
-}
-
-
-fn test_reg64_qword_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS64,
-             |r1| (Operand::Reg64(r1), qword_pointer(0x42i8)),
-             |s1| format!("{}, qword ptr [0x42]", s1));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS64,
-             |r1| (Operand::Reg64(r1), qword_pointer(0x12345678)),
-             |s1| format!("{}, qword ptr [0x12345678]", s1));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS64,
-                 |r1, r2| (Operand::Reg64(r1), qword_pointer(r2)),
-                 |s1, s2| format!("{}, qword ptr [{}]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, &index_regs,
-                 |r1, r2| (Operand::Reg64(r1), qword_pointer(r2*4)),
-                 |s1, s2| format!("{}, qword ptr [{}*4]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS64,
-                 |r1, r2| (Operand::Reg64(r1), qword_pointer(r2 + 0x42i8)),
-                 |s1, s2| format!("{}, qword ptr [{} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS64,
-                 |r1, r2| (Operand::Reg64(r1), qword_pointer(r2 + 0x12345678)),
-                 |s1, s2| format!("{}, qword ptr [{} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, &index_regs,
-                 |r1, r2| (Operand::Reg64(r1), qword_pointer(r2*4 + 0x42i8)),
-                 |s1, s2| format!("{}, qword ptr [{}*4 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, &index_regs,
-                 |r1, r2| (Operand::Reg64(r1), qword_pointer(r2*4 + 0x12345678)),
-                 |s1, s2| format!("{}, qword ptr [{}*4 + 0x12345678]", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg64(r1), qword_pointer(r2 + r3*4)),
-                     |s1, s2, s3| format!("{}, qword ptr [{} + {}*4]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg64(r1), qword_pointer(r2 + r3*4 + 0x42i8)),
-                     |s1, s2, s3| format!("{}, qword ptr [{} + {}*4 + 0x42]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg64(r1), qword_pointer(r2 + r3*4 + 0x12345678)),
-                     |s1, s2, s3| format!("{}, qword ptr [{} + {}*4 + 0x12345678]", s1, s2, s3));
-}
-
-
-fn test_reg16_byte_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS16,
-             |r1| (Operand::Reg16(r1), byte_pointer(0x42i8)),
-             |s1| format!("{}, byte ptr [0x42]", s1));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS16,
-             |r1| (Operand::Reg16(r1), byte_pointer(0x12345678)),
-             |s1| format!("{}, byte ptr [0x12345678]", s1));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS16, REGS64,
-                 |r1, r2| (Operand::Reg16(r1), byte_pointer(r2)),
-                 |s1, s2| format!("{}, byte ptr [{}]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS16, &index_regs,
-                 |r1, r2| (Operand::Reg16(r1), byte_pointer(r2*4)),
-                 |s1, s2| format!("{}, byte ptr [{}*4]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS16, REGS64,
-                 |r1, r2| (Operand::Reg16(r1), byte_pointer(r2 + 0x42i8)),
-                 |s1, s2| format!("{}, byte ptr [{} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS16, REGS64,
-                 |r1, r2| (Operand::Reg16(r1), byte_pointer(r2 + 0x12345678)),
-                 |s1, s2| format!("{}, byte ptr [{} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS16, &index_regs,
-                 |r1, r2| (Operand::Reg16(r1), byte_pointer(r2*4 + 0x42i8)),
-                 |s1, s2| format!("{}, byte ptr [{}*4 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS16, &index_regs,
-                 |r1, r2| (Operand::Reg16(r1), byte_pointer(r2*4 + 0x12345678)),
-                 |s1, s2| format!("{}, byte ptr [{}*4 + 0x12345678]", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS16, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg16(r1), byte_pointer(r2 + r3*4)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS16, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg16(r1), byte_pointer(r2 + r3*4 + 0x42i8)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4 + 0x42]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS16, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg16(r1), byte_pointer(r2 + r3*4 + 0x12345678)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4 + 0x12345678]", s1, s2, s3));
-}
-
-
-fn test_reg32_byte_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS32,
-             |r1| (Operand::Reg32(r1), byte_pointer(0x42i8)),
-             |s1| format!("{}, byte ptr [0x42]", s1));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS32,
-             |r1| (Operand::Reg32(r1), byte_pointer(0x12345678)),
-             |s1| format!("{}, byte ptr [0x12345678]", s1));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, REGS64,
-                 |r1, r2| (Operand::Reg32(r1), byte_pointer(r2)),
-                 |s1, s2| format!("{}, byte ptr [{}]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, &index_regs,
-                 |r1, r2| (Operand::Reg32(r1), byte_pointer(r2*4)),
-                 |s1, s2| format!("{}, byte ptr [{}*4]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, REGS64,
-                 |r1, r2| (Operand::Reg32(r1), byte_pointer(r2 + 0x42i8)),
-                 |s1, s2| format!("{}, byte ptr [{} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, REGS64,
-                 |r1, r2| (Operand::Reg32(r1), byte_pointer(r2 + 0x12345678)),
-                 |s1, s2| format!("{}, byte ptr [{} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, &index_regs,
-                 |r1, r2| (Operand::Reg32(r1), byte_pointer(r2*4 + 0x42i8)),
-                 |s1, s2| format!("{}, byte ptr [{}*4 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, &index_regs,
-                 |r1, r2| (Operand::Reg32(r1), byte_pointer(r2*4 + 0x12345678)),
-                 |s1, s2| format!("{}, byte ptr [{}*4 + 0x12345678]", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS32, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg32(r1), byte_pointer(r2 + r3*4)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS32, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg32(r1), byte_pointer(r2 + r3*4 + 0x42i8)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4 + 0x42]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS32, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg32(r1), byte_pointer(r2 + r3*4 + 0x12345678)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4 + 0x12345678]", s1, s2, s3));
-}
-
-
-fn test_reg64_byte_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS64,
-             |r1| (Operand::Reg64(r1), byte_pointer(0x42i8)),
-             |s1| format!("{}, byte ptr [0x42]", s1));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS64,
-             |r1| (Operand::Reg64(r1), byte_pointer(0x12345678)),
-             |s1| format!("{}, byte ptr [0x12345678]", s1));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS64,
-                 |r1, r2| (Operand::Reg64(r1), byte_pointer(r2)),
-                 |s1, s2| format!("{}, byte ptr [{}]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, &index_regs,
-                 |r1, r2| (Operand::Reg64(r1), byte_pointer(r2*4)),
-                 |s1, s2| format!("{}, byte ptr [{}*4]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS64,
-                 |r1, r2| (Operand::Reg64(r1), byte_pointer(r2 + 0x42i8)),
-                 |s1, s2| format!("{}, byte ptr [{} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS64,
-                 |r1, r2| (Operand::Reg64(r1), byte_pointer(r2 + 0x12345678)),
-                 |s1, s2| format!("{}, byte ptr [{} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, &index_regs,
-                 |r1, r2| (Operand::Reg64(r1), byte_pointer(r2*4 + 0x42i8)),
-                 |s1, s2| format!("{}, byte ptr [{}*4 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, &index_regs,
-                 |r1, r2| (Operand::Reg64(r1), byte_pointer(r2*4 + 0x12345678)),
-                 |s1, s2| format!("{}, byte ptr [{}*4 + 0x12345678]", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg64(r1), byte_pointer(r2 + r3*4)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg64(r1), byte_pointer(r2 + r3*4 + 0x42i8)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4 + 0x42]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg64(r1), byte_pointer(r2 + r3*4 + 0x12345678)),
-                     |s1, s2, s3| format!("{}, byte ptr [{} + {}*4 + 0x12345678]", s1, s2, s3));
-}
-
-
-fn test_reg32_word_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS32,
-             |r1| (Operand::Reg32(r1), word_pointer(0x42i8)),
-             |s1| format!("{}, word ptr [0x42]", s1));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS32,
-             |r1| (Operand::Reg32(r1), word_pointer(0x12345678)),
-             |s1| format!("{}, word ptr [0x12345678]", s1));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, REGS64,
-                 |r1, r2| (Operand::Reg32(r1), word_pointer(r2)),
-                 |s1, s2| format!("{}, word ptr [{}]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, &index_regs,
-                 |r1, r2| (Operand::Reg32(r1), word_pointer(r2*4)),
-                 |s1, s2| format!("{}, word ptr [{}*4]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, REGS64,
-                 |r1, r2| (Operand::Reg32(r1), word_pointer(r2 + 0x42i8)),
-                 |s1, s2| format!("{}, word ptr [{} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, REGS64,
-                 |r1, r2| (Operand::Reg32(r1), word_pointer(r2 + 0x12345678)),
-                 |s1, s2| format!("{}, word ptr [{} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, &index_regs,
-                 |r1, r2| (Operand::Reg32(r1), word_pointer(r2*4 + 0x42i8)),
-                 |s1, s2| format!("{}, word ptr [{}*4 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS32, &index_regs,
-                 |r1, r2| (Operand::Reg32(r1), word_pointer(r2*4 + 0x12345678)),
-                 |s1, s2| format!("{}, word ptr [{}*4 + 0x12345678]", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS32, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg32(r1), word_pointer(r2 + r3*4)),
-                     |s1, s2, s3| format!("{}, word ptr [{} + {}*4]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS32, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg32(r1), word_pointer(r2 + r3*4 + 0x42i8)),
-                     |s1, s2, s3| format!("{}, word ptr [{} + {}*4 + 0x42]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS32, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg32(r1), word_pointer(r2 + r3*4 + 0x12345678)),
-                     |s1, s2, s3| format!("{}, word ptr [{} + {}*4 + 0x12345678]", s1, s2, s3));
-}
-
-
-fn test_reg64_word_ptr(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS64,
-             |r1| (Operand::Reg64(r1), word_pointer(0x42i8)),
-             |s1| format!("{}, word ptr [0x42]", s1));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS64,
-             |r1| (Operand::Reg64(r1), word_pointer(0x12345678)),
-             |s1| format!("{}, word ptr [0x12345678]", s1));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS64,
-                 |r1, r2| (Operand::Reg64(r1), word_pointer(r2)),
-                 |s1, s2| format!("{}, word ptr [{}]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, &index_regs,
-                 |r1, r2| (Operand::Reg64(r1), word_pointer(r2*4)),
-                 |s1, s2| format!("{}, word ptr [{}*4]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS64,
-                 |r1, r2| (Operand::Reg64(r1), word_pointer(r2 + 0x42i8)),
-                 |s1, s2| format!("{}, word ptr [{} + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS64,
-                 |r1, r2| (Operand::Reg64(r1), word_pointer(r2 + 0x12345678)),
-                 |s1, s2| format!("{}, word ptr [{} + 0x12345678]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, &index_regs,
-                 |r1, r2| (Operand::Reg64(r1), word_pointer(r2*4 + 0x42i8)),
-                 |s1, s2| format!("{}, word ptr [{}*4 + 0x42]", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, &index_regs,
-                 |r1, r2| (Operand::Reg64(r1), word_pointer(r2*4 + 0x12345678)),
-                 |s1, s2| format!("{}, word ptr [{}*4 + 0x12345678]", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg64(r1), word_pointer(r2 + r3*4)),
-                     |s1, s2, s3| format!("{}, word ptr [{} + {}*4]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg64(r1), word_pointer(r2 + r3*4 + 0x42i8)),
-                     |s1, s2, s3| format!("{}, word ptr [{} + {}*4 + 0x42]", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, REGS64, &index_regs,
-                     |r1, r2, r3| (Operand::Reg64(r1), word_pointer(r2 + r3*4 + 0x12345678)),
-                     |s1, s2, s3| format!("{}, word ptr [{} + {}*4 + 0x12345678]", s1, s2, s3));
-}
-
-
-fn test_byte_ptr_imm8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, byte_pointer(0x42i8), Operand::Imm8(0x78)).unwrap();
-        let expected_disasm = vec![Some("byte ptr [0x42], 0x78")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, byte_pointer(0x12345678), Operand::Imm8(0x78)).unwrap();
-        let expected_disasm = vec![Some("byte ptr [0x12345678], 0x78")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (byte_pointer(r), Operand::Imm8(0x78)),
-             |s| format!("byte ptr [{}], 0x78", s));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             &index_regs,
-             |r| (byte_pointer(r*4), Operand::Imm8(0x78)),
-             |s| format!("byte ptr [{}*4], 0x78", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (byte_pointer(r + 0x42i8), Operand::Imm8(0x78)),
-             |s| format!("byte ptr [{} + 0x42], 0x78", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (byte_pointer(r + 0x12345678), Operand::Imm8(0x78)),
-             |s| format!("byte ptr [{} + 0x12345678], 0x78", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (byte_pointer(r*4 + 0x42i8), Operand::Imm8(0x78)),
-             |s| format!("byte ptr [{}*4 + 0x42], 0x78", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (byte_pointer(r*4 + 0x12345678), Operand::Imm8(0x78)),
-             |s| format!("byte ptr [{}*4 + 0x12345678], 0x78", s));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (byte_pointer(r1 + r2*4), Operand::Imm8(0x78)),
-                 |s1, s2| format!("byte ptr [{} + {}*4], 0x78", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (byte_pointer(r1 + r2*4 + 0x42i8), Operand::Imm8(0x78)),
-                 |s1, s2| format!("byte ptr [{} + {}*4 + 0x42], 0x78", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (byte_pointer(r1 + r2*4 + 0x12345678), Operand::Imm8(0x78)),
-                 |s1, s2| format!("byte ptr [{} + {}*4 + 0x12345678], 0x78", s1, s2));
-}
-
-
-fn test_byte_ptr_reg8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-    let simple_index_regs = SIMPLE_REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS8,
-             |r| (byte_pointer(0x42i8), Operand::Reg8(r)),
-             |s| format!("byte ptr [0x42], {}", s));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS8,
-             |r| (byte_pointer(0x12345678), Operand::Reg8(r)),
-             |s| format!("byte ptr [0x12345678], {}", s));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 SIMPLE_REGS64, REGS8,
-                 |r1, r2| (byte_pointer(r1), Operand::Reg8(r2)),
-                 |s1, s2| format!("byte ptr [{}], {}", s1, s2));
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REX_REGS8,
-                 |r1, r2| (byte_pointer(r1), Operand::Reg8(r2)),
-                 |s1, s2| format!("byte ptr [{}], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &simple_index_regs, REGS8,
-                 |r1, r2| (byte_pointer(r1*4), Operand::Reg8(r2)),
-                 |s1, s2| format!("byte ptr [{}*4], {}", s1, s2));
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &index_regs, REX_REGS8,
-                 |r1, r2| (byte_pointer(r1*4), Operand::Reg8(r2)),
-                 |s1, s2| format!("byte ptr [{}*4], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 SIMPLE_REGS64, REGS8,
-                 |r1, r2| (byte_pointer(r1 + 0x42i8), Operand::Reg8(r2)),
-                 |s1, s2| format!("byte ptr [{} + 0x42], {}", s1, s2));
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REX_REGS8,
-                 |r1, r2| (byte_pointer(r1 + 0x42i8), Operand::Reg8(r2)),
-                 |s1, s2| format!("byte ptr [{} + 0x42], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 SIMPLE_REGS64, REGS8,
-                 |r1, r2| (byte_pointer(r1 + 0x12345678), Operand::Reg8(r2)),
-                 |s1, s2| format!("byte ptr [{} + 0x12345678], {}", s1, s2));
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REX_REGS8,
-                 |r1, r2| (byte_pointer(r1 + 0x12345678), Operand::Reg8(r2)),
-                 |s1, s2| format!("byte ptr [{} + 0x12345678], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &simple_index_regs, REGS8,
-                 |r1, r2| (byte_pointer(r1*4 + 0x42i8), Operand::Reg8(r2)),
-                 |s1, s2| format!("byte ptr [{}*4 + 0x42], {}", s1, s2));
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &index_regs, REX_REGS8,
-                 |r1, r2| (byte_pointer(r1*4 + 0x42i8), Operand::Reg8(r2)),
-                 |s1, s2| format!("byte ptr [{}*4 + 0x42], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &simple_index_regs, REGS8,
-                 |r1, r2| (byte_pointer(r1*4 + 0x12345678), Operand::Reg8(r2)),
-                 |s1, s2| format!("byte ptr [{}*4 + 0x12345678], {}", s1, s2));
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &index_regs, REX_REGS8,
-                 |r1, r2| (byte_pointer(r1*4 + 0x12345678), Operand::Reg8(r2)),
-                 |s1, s2| format!("byte ptr [{}*4 + 0x12345678], {}", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     SIMPLE_REGS64, &simple_index_regs, REGS8,
-                     |r1, r2, r3| (byte_pointer(r1 + r2*4), Operand::Reg8(r3)),
-                     |s1, s2, s3| format!("byte ptr [{} + {}*4], {}", s1, s2, s3));
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, &index_regs, REX_REGS8,
-                     |r1, r2, r3| (byte_pointer(r1 + r2*4), Operand::Reg8(r3)),
-                     |s1, s2, s3| format!("byte ptr [{} + {}*4], {}", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     SIMPLE_REGS64, &simple_index_regs, REGS8,
-                     |r1, r2, r3| (byte_pointer(r1 + r2*4 + 0x42i8), Operand::Reg8(r3)),
-                     |s1, s2, s3| format!("byte ptr [{} + {}*4 + 0x42], {}", s1, s2, s3));
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, &index_regs, REX_REGS8,
-                     |r1, r2, r3| (byte_pointer(r1 + r2*4 + 0x42i8), Operand::Reg8(r3)),
-                     |s1, s2, s3| format!("byte ptr [{} + {}*4 + 0x42], {}", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     SIMPLE_REGS64, &simple_index_regs, REGS8,
-                     |r1, r2, r3| (byte_pointer(r1 + r2*4 + 0x12345678), Operand::Reg8(r3)),
-                     |s1, s2, s3| format!("byte ptr [{} + {}*4 + 0x12345678], {}", s1, s2, s3));
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, &index_regs, REX_REGS8,
-                     |r1, r2, r3| (byte_pointer(r1 + r2*4 + 0x12345678), Operand::Reg8(r3)),
-                     |s1, s2, s3| format!("byte ptr [{} + {}*4 + 0x12345678], {}", s1, s2, s3));
-}
-
-
-fn test_word_ptr_imm8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, word_pointer(0x42i8), Operand::Imm8(0x5a)).unwrap();
-        let expected_disasm = vec![Some("word ptr [0x42], 0x5a")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, word_pointer(0x12345678), Operand::Imm8(0x5a)).unwrap();
-        let expected_disasm = vec![Some("word ptr [0x12345678], 0x5a")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (word_pointer(r), Operand::Imm8(0x5a)),
-             |s| format!("word ptr [{}], 0x5a", s));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             &index_regs,
-             |r| (word_pointer(r*4), Operand::Imm8(0x5a)),
-             |s| format!("word ptr [{}*4], 0x5a", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (word_pointer(r + 0x42i8), Operand::Imm8(0x5a)),
-             |s| format!("word ptr [{} + 0x42], 0x5a", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (word_pointer(r + 0x12345678), Operand::Imm8(0x5a)),
-             |s| format!("word ptr [{} + 0x12345678], 0x5a", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (word_pointer(r*4 + 0x42i8), Operand::Imm8(0x5a)),
-             |s| format!("word ptr [{}*4 + 0x42], 0x5a", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (word_pointer(r*4 + 0x12345678), Operand::Imm8(0x5a)),
-             |s| format!("word ptr [{}*4 + 0x12345678], 0x5a", s));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (word_pointer(r1 + r2*4), Operand::Imm8(0x5a)),
-                 |s1, s2| format!("word ptr [{} + {}*4], 0x5a", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (word_pointer(r1 + r2*4 + 0x42i8), Operand::Imm8(0x5a)),
-                 |s1, s2| format!("word ptr [{} + {}*4 + 0x42], 0x5a", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (word_pointer(r1 + r2*4 + 0x12345678), Operand::Imm8(0x5a)),
-                 |s1, s2| format!("word ptr [{} + {}*4 + 0x12345678], 0x5a", s1, s2));
-}
-
-
-fn test_word_ptr_imm16(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, word_pointer(0x42i8), Operand::Imm16(0x1234)).unwrap();
-        let expected_disasm = vec![Some("word ptr [0x42], 0x1234")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, word_pointer(0x12345678), Operand::Imm16(0x1234)).unwrap();
-        let expected_disasm = vec![Some("word ptr [0x12345678], 0x1234")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (word_pointer(r), Operand::Imm16(0x1234)),
-             |s| format!("word ptr [{}], 0x1234", s));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             &index_regs,
-             |r| (word_pointer(r*4), Operand::Imm16(0x1234)),
-             |s| format!("word ptr [{}*4], 0x1234", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (word_pointer(r + 0x42i8), Operand::Imm16(0x1234)),
-             |s| format!("word ptr [{} + 0x42], 0x1234", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (word_pointer(r + 0x12345678), Operand::Imm16(0x1234)),
-             |s| format!("word ptr [{} + 0x12345678], 0x1234", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (word_pointer(r*4 + 0x42i8), Operand::Imm16(0x1234)),
-             |s| format!("word ptr [{}*4 + 0x42], 0x1234", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (word_pointer(r*4 + 0x12345678), Operand::Imm16(0x1234)),
-             |s| format!("word ptr [{}*4 + 0x12345678], 0x1234", s));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (word_pointer(r1 + r2*4), Operand::Imm16(0x1234)),
-                 |s1, s2| format!("word ptr [{} + {}*4], 0x1234", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (word_pointer(r1 + r2*4 + 0x42i8), Operand::Imm16(0x1234)),
-                 |s1, s2| format!("word ptr [{} + {}*4 + 0x42], 0x1234", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (word_pointer(r1 + r2*4 + 0x12345678), Operand::Imm16(0x1234)),
-                 |s1, s2| format!("word ptr [{} + {}*4 + 0x12345678], 0x1234", s1, s2));
-}
-
-
-fn test_word_ptr_reg16(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS16,
-             |r| (word_pointer(0x42i8), Operand::Reg16(r)),
-             |s| format!("word ptr [0x42], {}", s));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS16,
-             |r| (word_pointer(0x12345678), Operand::Reg16(r)),
-             |s| format!("word ptr [0x12345678], {}", s));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS16,
-                 |r1, r2| (word_pointer(r1), Operand::Reg16(r2)),
-                 |s1, s2| format!("word ptr [{}], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &index_regs, REGS16,
-                 |r1, r2| (word_pointer(r1*4), Operand::Reg16(r2)),
-                 |s1, s2| format!("word ptr [{}*4], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS16,
-                 |r1, r2| (word_pointer(r1 + 0x42i8), Operand::Reg16(r2)),
-                 |s1, s2| format!("word ptr [{} + 0x42], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS16,
-                 |r1, r2| (word_pointer(r1 + 0x12345678), Operand::Reg16(r2)),
-                 |s1, s2| format!("word ptr [{} + 0x12345678], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &index_regs, REGS16,
-                 |r1, r2| (word_pointer(r1*4 + 0x42i8), Operand::Reg16(r2)),
-                 |s1, s2| format!("word ptr [{}*4 + 0x42], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &index_regs, REGS16,
-                 |r1, r2| (word_pointer(r1*4 + 0x12345678), Operand::Reg16(r2)),
-                 |s1, s2| format!("word ptr [{}*4 + 0x12345678], {}", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, &index_regs, REGS16,
-                     |r1, r2, r3| (word_pointer(r1 + r2*4), Operand::Reg16(r3)),
-                     |s1, s2, s3| format!("word ptr [{} + {}*4], {}", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, &index_regs, REGS16,
-                     |r1, r2, r3| (word_pointer(r1 + r2*4 + 0x42i8), Operand::Reg16(r3)),
-                     |s1, s2, s3| format!("word ptr [{} + {}*4 + 0x42], {}", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, &index_regs, REGS16,
-                     |r1, r2, r3| (word_pointer(r1 + r2*4 + 0x12345678), Operand::Reg16(r3)),
-                     |s1, s2, s3| format!("word ptr [{} + {}*4 + 0x12345678], {}", s1, s2, s3));
-}
-
-
-fn test_dword_ptr_imm8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, dword_pointer(0x42i8), Operand::Imm8(0x5a)).unwrap();
-        let expected_disasm = vec![Some("dword ptr [0x42], 0x5a")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, dword_pointer(0x12345678), Operand::Imm8(0x5a)).unwrap();
-        let expected_disasm = vec![Some("dword ptr [0x12345678], 0x5a")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (dword_pointer(r), Operand::Imm8(0x5a)),
-             |s| format!("dword ptr [{}], 0x5a", s));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             &index_regs,
-             |r| (dword_pointer(r*4), Operand::Imm8(0x5a)),
-             |s| format!("dword ptr [{}*4], 0x5a", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (dword_pointer(r + 0x42i8), Operand::Imm8(0x5a)),
-             |s| format!("dword ptr [{} + 0x42], 0x5a", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (dword_pointer(r + 0x12345678), Operand::Imm8(0x5a)),
-             |s| format!("dword ptr [{} + 0x12345678], 0x5a", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (dword_pointer(r*4 + 0x42i8), Operand::Imm8(0x5a)),
-             |s| format!("dword ptr [{}*4 + 0x42], 0x5a", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (dword_pointer(r*4 + 0x12345678), Operand::Imm8(0x5a)),
-             |s| format!("dword ptr [{}*4 + 0x12345678], 0x5a", s));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (dword_pointer(r1 + r2*4), Operand::Imm8(0x5a)),
-                 |s1, s2| format!("dword ptr [{} + {}*4], 0x5a", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (dword_pointer(r1 + r2*4 + 0x42i8), Operand::Imm8(0x5a)),
-                 |s1, s2| format!("dword ptr [{} + {}*4 + 0x42], 0x5a", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (dword_pointer(r1 + r2*4 + 0x12345678), Operand::Imm8(0x5a)),
-                 |s1, s2| format!("dword ptr [{} + {}*4 + 0x12345678], 0x5a", s1, s2));
-}
-
-
-fn test_dword_ptr_imm32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, dword_pointer(0x42i8), Operand::Imm32(0x12345678)).unwrap();
-        let expected_disasm = vec![Some("dword ptr [0x42], 0x12345678")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, dword_pointer(0x12345678), Operand::Imm32(0x12345678)).unwrap();
-        let expected_disasm = vec![Some("dword ptr [0x12345678], 0x12345678")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (dword_pointer(r), Operand::Imm32(0x12345678)),
-             |s| format!("dword ptr [{}], 0x12345678", s));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             &index_regs,
-             |r| (dword_pointer(r*4), Operand::Imm32(0x12345678)),
-             |s| format!("dword ptr [{}*4], 0x12345678", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (dword_pointer(r + 0x42i8), Operand::Imm32(0x12345678)),
-             |s| format!("dword ptr [{} + 0x42], 0x12345678", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (dword_pointer(r + 0x12345678), Operand::Imm32(0x12345678)),
-             |s| format!("dword ptr [{} + 0x12345678], 0x12345678", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (dword_pointer(r*4 + 0x42i8), Operand::Imm32(0x12345678)),
-             |s| format!("dword ptr [{}*4 + 0x42], 0x12345678", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (dword_pointer(r*4 + 0x12345678), Operand::Imm32(0x12345678)),
-             |s| format!("dword ptr [{}*4 + 0x12345678], 0x12345678", s));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (dword_pointer(r1 + r2*4), Operand::Imm32(0x12345678)),
-                 |s1, s2| format!("dword ptr [{} + {}*4], 0x12345678", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (dword_pointer(r1 + r2*4 + 0x42i8), Operand::Imm32(0x12345678)),
-                 |s1, s2| format!("dword ptr [{} + {}*4 + 0x42], 0x12345678", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (dword_pointer(r1 + r2*4 + 0x12345678), Operand::Imm32(0x12345678)),
-                 |s1, s2| format!("dword ptr [{} + {}*4 + 0x12345678], 0x12345678", s1, s2));
-}
-
-
-fn test_dword_ptr_reg32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS32,
-             |r| (dword_pointer(0x42i8), Operand::Reg32(r)),
-             |s| format!("dword ptr [0x42], {}", s));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS32,
-             |r| (dword_pointer(0x12345678), Operand::Reg32(r)),
-             |s| format!("dword ptr [0x12345678], {}", s));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS32,
-                 |r1, r2| (dword_pointer(r1), Operand::Reg32(r2)),
-                 |s1, s2| format!("dword ptr [{}], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &index_regs, REGS32,
-                 |r1, r2| (dword_pointer(r1*4), Operand::Reg32(r2)),
-                 |s1, s2| format!("dword ptr [{}*4], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS32,
-                 |r1, r2| (dword_pointer(r1 + 0x42i8), Operand::Reg32(r2)),
-                 |s1, s2| format!("dword ptr [{} + 0x42], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS32,
-                 |r1, r2| (dword_pointer(r1 + 0x12345678), Operand::Reg32(r2)),
-                 |s1, s2| format!("dword ptr [{} + 0x12345678], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &index_regs, REGS32,
-                 |r1, r2| (dword_pointer(r1*4 + 0x42i8), Operand::Reg32(r2)),
-                 |s1, s2| format!("dword ptr [{}*4 + 0x42], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &index_regs, REGS32,
-                 |r1, r2| (dword_pointer(r1*4 + 0x12345678), Operand::Reg32(r2)),
-                 |s1, s2| format!("dword ptr [{}*4 + 0x12345678], {}", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, &index_regs, REGS32,
-                     |r1, r2, r3| (dword_pointer(r1 + r2*4), Operand::Reg32(r3)),
-                     |s1, s2, s3| format!("dword ptr [{} + {}*4], {}", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, &index_regs, REGS32,
-                     |r1, r2, r3| (dword_pointer(r1 + r2*4 + 0x42i8), Operand::Reg32(r3)),
-                     |s1, s2, s3| format!("dword ptr [{} + {}*4 + 0x42], {}", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, &index_regs, REGS32,
-                     |r1, r2, r3| (dword_pointer(r1 + r2*4 + 0x12345678), Operand::Reg32(r3)),
-                     |s1, s2, s3| format!("dword ptr [{} + {}*4 + 0x12345678], {}", s1, s2, s3));
-}
-
-
-fn test_qword_ptr_imm8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, qword_pointer(0x42i8), Operand::Imm8(0x5a)).unwrap();
-        let expected_disasm = vec![Some("qword ptr [0x42], 0x5a")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, qword_pointer(0x12345678), Operand::Imm8(0x5a)).unwrap();
-        let expected_disasm = vec![Some("qword ptr [0x12345678], 0x5a")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (qword_pointer(r), Operand::Imm8(0x5a)),
-             |s| format!("qword ptr [{}], 0x5a", s));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             &index_regs,
-             |r| (qword_pointer(r*4), Operand::Imm8(0x5a)),
-             |s| format!("qword ptr [{}*4], 0x5a", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (qword_pointer(r + 0x42i8), Operand::Imm8(0x5a)),
-             |s| format!("qword ptr [{} + 0x42], 0x5a", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (qword_pointer(r + 0x12345678), Operand::Imm8(0x5a)),
-             |s| format!("qword ptr [{} + 0x12345678], 0x5a", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (qword_pointer(r*4 + 0x42i8), Operand::Imm8(0x5a)),
-             |s| format!("qword ptr [{}*4 + 0x42], 0x5a", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (qword_pointer(r*4 + 0x12345678), Operand::Imm8(0x5a)),
-             |s| format!("qword ptr [{}*4 + 0x12345678], 0x5a", s));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (qword_pointer(r1 + r2*4), Operand::Imm8(0x5a)),
-                 |s1, s2| format!("qword ptr [{} + {}*4], 0x5a", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (qword_pointer(r1 + r2*4 + 0x42i8), Operand::Imm8(0x5a)),
-                 |s1, s2| format!("qword ptr [{} + {}*4 + 0x42], 0x5a", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (qword_pointer(r1 + r2*4 + 0x12345678), Operand::Imm8(0x5a)),
-                 |s1, s2| format!("qword ptr [{} + {}*4 + 0x12345678], 0x5a", s1, s2));
-}
-
-
-fn test_qword_ptr_imm32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, qword_pointer(0x42i8), Operand::Imm32(0x12345678)).unwrap();
-        let expected_disasm = vec![Some("qword ptr [0x42], 0x12345678")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    {
-        let mut code = Vec::new();
-        f(&mut code, qword_pointer(0x12345678), Operand::Imm32(0x12345678)).unwrap();
-        let expected_disasm = vec![Some("qword ptr [0x12345678], 0x12345678")];
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (qword_pointer(r), Operand::Imm32(0x12345678)),
-             |s| format!("qword ptr [{}], 0x12345678", s));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             &index_regs,
-             |r| (qword_pointer(r*4), Operand::Imm32(0x12345678)),
-             |s| format!("qword ptr [{}*4], 0x12345678", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (qword_pointer(r + 0x42i8), Operand::Imm32(0x12345678)),
-             |s| format!("qword ptr [{} + 0x42], 0x12345678", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             REGS64,
-             |r| (qword_pointer(r + 0x12345678), Operand::Imm32(0x12345678)),
-             |s| format!("qword ptr [{} + 0x12345678], 0x12345678", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (qword_pointer(r*4 + 0x42i8), Operand::Imm32(0x12345678)),
-             |s| format!("qword ptr [{}*4 + 0x42], 0x12345678", s));
-
-    test_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-             &index_regs,
-             |r| (qword_pointer(r*4 + 0x12345678), Operand::Imm32(0x12345678)),
-             |s| format!("qword ptr [{}*4 + 0x12345678], 0x12345678", s));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (qword_pointer(r1 + r2*4), Operand::Imm32(0x12345678)),
-                 |s1, s2| format!("qword ptr [{} + {}*4], 0x12345678", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (qword_pointer(r1 + r2*4 + 0x42i8), Operand::Imm32(0x12345678)),
-                 |s1, s2| format!("qword ptr [{} + {}*4 + 0x42], 0x12345678", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (m, imm)| f(v, m, imm),
-                 REGS64, &index_regs,
-                 |r1, r2| (qword_pointer(r1 + r2*4 + 0x12345678), Operand::Imm32(0x12345678)),
-                 |s1, s2| format!("qword ptr [{} + {}*4 + 0x12345678], 0x12345678", s1, s2));
-}
-
-
-fn test_qword_ptr_reg64(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    let index_regs = REGS64.iter().filter(|&&(r, _)| r != Rsp && r != R12)
-        .cloned().collect::<Vec<_>>();
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS64,
-             |r| (qword_pointer(0x42i8), Operand::Reg64(r)),
-             |s| format!("qword ptr [0x42], {}", s));
-
-    test_reg(mnemonic, |v, (r, m)| f(v, r, m),
-             REGS64,
-             |r| (qword_pointer(0x12345678), Operand::Reg64(r)),
-             |s| format!("qword ptr [0x12345678], {}", s));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS64,
-                 |r1, r2| (qword_pointer(r1), Operand::Reg64(r2)),
-                 |s1, s2| format!("qword ptr [{}], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &index_regs, REGS64,
-                 |r1, r2| (qword_pointer(r1*4), Operand::Reg64(r2)),
-                 |s1, s2| format!("qword ptr [{}*4], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS64,
-                 |r1, r2| (qword_pointer(r1 + 0x42i8), Operand::Reg64(r2)),
-                 |s1, s2| format!("qword ptr [{} + 0x42], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 REGS64, REGS64,
-                 |r1, r2| (qword_pointer(r1 + 0x12345678), Operand::Reg64(r2)),
-                 |s1, s2| format!("qword ptr [{} + 0x12345678], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &index_regs, REGS64,
-                 |r1, r2| (qword_pointer(r1*4 + 0x42i8), Operand::Reg64(r2)),
-                 |s1, s2| format!("qword ptr [{}*4 + 0x42], {}", s1, s2));
-
-    test_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                 &index_regs, REGS64,
-                 |r1, r2| (qword_pointer(r1*4 + 0x12345678), Operand::Reg64(r2)),
-                 |s1, s2| format!("qword ptr [{}*4 + 0x12345678], {}", s1, s2));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, &index_regs, REGS64,
-                     |r1, r2, r3| (qword_pointer(r1 + r2*4), Operand::Reg64(r3)),
-                     |s1, s2, s3| format!("qword ptr [{} + {}*4], {}", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, &index_regs, REGS64,
-                     |r1, r2, r3| (qword_pointer(r1 + r2*4 + 0x42i8), Operand::Reg64(r3)),
-                     |s1, s2, s3| format!("qword ptr [{} + {}*4 + 0x42], {}", s1, s2, s3));
-
-    test_reg_reg_reg(mnemonic, |v, (r, m)| f(v, r, m),
-                     REGS64, &index_regs, REGS64,
-                     |r1, r2, r3| (qword_pointer(r1 + r2*4 + 0x12345678), Operand::Reg64(r3)),
-                     |s1, s2, s3| format!("qword ptr [{} + {}*4 + 0x12345678], {}", s1, s2, s3));
-}
-
-
-fn test_shift_reg8(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg(mnemonic, |v, r| f(v, r, Operand::Reg8(Cl)),
-             REGS8,
-             |r| Operand::Reg8(r),
-             |s| format!("{}, cl", s));
-}
-
-fn test_shift_reg16(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg(mnemonic, |v, r| f(v, r, Operand::Reg8(Cl)),
-             REGS16,
-             |r| Operand::Reg16(r),
-             |s| format!("{}, cl", s));
-}
-
-fn test_shift_reg32(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg(mnemonic, |v, r| f(v, r, Operand::Reg8(Cl)),
-             REGS32,
-             |r| Operand::Reg32(r),
-             |s| format!("{}, cl", s));
-}
-
-fn test_shift_reg64(mnemonic: &str, f: fn(&mut Vec<u8>, Operand, Operand) -> Result<()>) {
-    test_reg(mnemonic, |v, r| f(v, r, Operand::Reg8(Cl)),
-             REGS64,
-             |r| Operand::Reg64(r),
-             |s| format!("{}, cl", s));
-}
-
-
-macro_rules! test_op2 {
-    ($mnemonic:expr, $f:path) => {
-        test_reg8_imm8($mnemonic, $f);
-        test_reg16_imm16($mnemonic, $f);
-        test_reg32_imm32($mnemonic, $f);
-        test_reg64_imm32($mnemonic, $f);
-
-        test_reg16_imm8($mnemonic, $f);
-        test_reg32_imm8($mnemonic, $f);
-        test_reg64_imm8($mnemonic, $f);
-
-        test_reg8_reg8($mnemonic, $f);
-        test_reg16_reg16($mnemonic, $f);
-        test_reg32_reg32($mnemonic, $f);
-        test_reg64_reg64($mnemonic, $f);
-
-        test_reg8_byte_ptr($mnemonic, $f);
-        test_reg16_word_ptr($mnemonic, $f);
-        test_reg32_dword_ptr($mnemonic, $f);
-        test_reg64_qword_ptr($mnemonic, $f);
-
-        test_byte_ptr_imm8($mnemonic, $f);
-        test_word_ptr_imm16($mnemonic, $f);
-        test_dword_ptr_imm32($mnemonic, $f);
-        test_qword_ptr_imm32($mnemonic, $f);
-
-        test_byte_ptr_reg8($mnemonic, $f);
-        test_word_ptr_reg16($mnemonic, $f);
-        test_dword_ptr_reg32($mnemonic, $f);
-        test_qword_ptr_reg64($mnemonic, $f);
-    }
-}
-
-
-macro_rules! test_cmovcc {
-    ($( ($test:ident, $mnemonic:expr, $f:path), )*) => {
-        $(
-            #[test]
-            fn $test() {
-                test_reg16_reg16($mnemonic, $f);
-                test_reg32_reg32($mnemonic, $f);
-                test_reg64_reg64($mnemonic, $f);
-
-                test_reg16_word_ptr($mnemonic, $f);
-                test_reg32_dword_ptr($mnemonic, $f);
-                test_reg64_qword_ptr($mnemonic, $f);
+    for (a1, s1) in A1::test_cases() {
+        for (a2, s2) in A2::test_cases() {
+            if filter(a1, a2) {
+                f(&mut code, a1, a2).unwrap();
+                test_disasm(mnemonic, s(&s1, &s2), &code);
+                code.clear();
             }
-        )*
+        }
     }
 }
 
-macro_rules! test_jcc {
-    ($( ($test:ident, $mnemonic:expr, $f:path), )*) => {
-        $(
-            #[test]
-            fn $test() {
-                test_off8($mnemonic, $f);
-                test_off32($mnemonic, $f);
+#[track_caller]
+fn test2_filter<A1, A2>(
+    mnemonic: &str,
+    f: fn(&mut Vec<u8>, A1, A2) -> Result<()>,
+    filter: impl FnMut(A1, A2) -> bool
+)
+    where A1: TestCases, A2: TestCases
+{
+    test2_format_filter(mnemonic,
+        f,
+        |s1, s2| format!("{}, {}", s1, s2),
+        filter)
+}
+
+#[track_caller]
+fn test2<A1, A2>(mnemonic: &str, f: fn(&mut Vec<u8>, A1, A2) -> Result<()>)
+    where A1: TestCases, A2: TestCases
+{
+    test2_filter(mnemonic, f, |_, _| true);
+}
+
+#[track_caller]
+fn test2_cond<A2>(mnemonic: &str, f: fn(&mut Vec<u8>, Condition, A2) -> Result<()>)
+    where A2: TestCases
+{
+    let mut code = Vec::new();
+    for (a1, s1) in Condition::test_cases() {
+        for (a2, s2) in A2::test_cases() {
+            f(&mut code, a1, a2).unwrap();
+            test_disasm(&format!("{mnemonic}{s1}"), s2, &code);
+            code.clear();
+        }
+    }
+}
+
+#[track_caller]
+fn test3_cond<A2, A3>(mnemonic: &str, f: fn(&mut Vec<u8>, Condition, A2, A3) -> Result<()>)
+    where A2: TestCases, A3: TestCases
+{
+    let mut code = Vec::new();
+    for (a1, s1) in Condition::test_cases() {
+        for (a2, s2) in A2::test_cases() {
+            for (a3, s3) in A3::test_cases() {
+                f(&mut code, a1, a2, a3).unwrap();
+                test_disasm(&format!("{mnemonic}{s1}"), format!("{s2}, {s3}"), &code);
+                code.clear();
             }
-        )*
-    }
-}
-
-macro_rules! test_setcc {
-    ($( ($test:ident, $mnemonic:expr, $f:path), )*) => {
-        $(
-            #[test]
-            fn $test() {
-                test_reg8($mnemonic, $f);
-                test_byte_ptr($mnemonic, $f);
-            }
-        )*
-    }
-}
-
-macro_rules! test_shift {
-    ($mnemonic:expr, $f:path) => {
-        test_reg8_imm8($mnemonic, $f);
-        test_reg16_imm8($mnemonic, $f);
-        test_reg32_imm8($mnemonic, $f);
-        test_reg64_imm8($mnemonic, $f);
-
-        test_shift_reg8($mnemonic, $f);
-        test_shift_reg16($mnemonic, $f);
-        test_shift_reg32($mnemonic, $f);
-        test_shift_reg64($mnemonic, $f);
-
-        test_byte_ptr_imm8($mnemonic, $f);
-        test_word_ptr_imm8($mnemonic, $f);
-        test_dword_ptr_imm8($mnemonic, $f);
-        test_qword_ptr_imm8($mnemonic, $f);
-    }
-}
-
-macro_rules! test_op1 {
-    ($mnemonic:expr, $f:path) => {
-        test_reg8($mnemonic, $f);
-        test_reg16($mnemonic, $f);
-        test_reg32($mnemonic, $f);
-        test_reg64($mnemonic, $f);
-
-        test_byte_ptr($mnemonic, $f);
-        test_word_ptr($mnemonic, $f);
-        test_dword_ptr($mnemonic, $f);
-        test_qword_ptr($mnemonic, $f);
+        }
     }
 }
 
 
 #[test]
-fn test_add() {
-    test_op2!("add", Emit::emit_add);
+fn test_adc_al_i8() {
+    test1_format("adc", Emit::emit_adc_al_i8, |s| format!("al, {s}"));
 }
 
 #[test]
-fn test_or() {
-    test_op2!("or", Emit::emit_or);
+fn test_adc_ax_i16() {
+    test1_format("adc", Emit::emit_adc_ax_i16, |s| format!("ax, {s}"));
 }
 
 #[test]
-fn test_adc() {
-    test_op2!("adc", Emit::emit_adc);
+fn test_adc_eax_i32() {
+    test1_format("adc", Emit::emit_adc_eax_i32, |s| format!("eax, {s}"));
 }
 
 #[test]
-fn test_sbb() {
-    test_op2!("sbb", Emit::emit_sbb);
+fn test_adc_rax_i32() {
+    test1_format("adc", Emit::emit_adc_rax_i32, |s| format!("rax, {s}"));
 }
 
 #[test]
-fn test_and() {
-    test_op2!("and", Emit::emit_and);
+fn test_adc_ri8() {
+    test2("adc", Emit::emit_adc_ri8);
 }
 
 #[test]
-fn test_sub() {
-    test_op2!("sub", Emit::emit_sub);
+fn test_adc_ri16() {
+    test2("adc", Emit::emit_adc_ri16);
 }
 
 #[test]
-fn test_xor() {
-    test_op2!("xor", Emit::emit_xor);
+fn test_adc_ri32() {
+    test2("adc", Emit::emit_adc_ri32);
 }
 
 #[test]
-fn test_cmp() {
-    test_op2!("cmp", Emit::emit_cmp);
+fn test_adc_r64_i32() {
+    test2("adc", Emit::emit_adc_r64_i32);
 }
 
 #[test]
-fn test_shl() {
-    test_shift!("shl", Emit::emit_shl);
+fn test_adc_r16_i8() {
+    test2("adc", Emit::emit_adc_r16_i8);
 }
 
 #[test]
-fn test_shr() {
-    test_shift!("shr", Emit::emit_shr);
+fn test_adc_r32_i8() {
+    test2("adc", Emit::emit_adc_r32_i8);
 }
 
 #[test]
-fn test_sar() {
-    test_shift!("sar", Emit::emit_sar);
+fn test_adc_r64_i8() {
+    test2("adc", Emit::emit_adc_r64_i8);
 }
 
 #[test]
-fn test_not() {
-    test_op1!("not", Emit::emit_not);
+fn test_adc_rr8() {
+    test2_filter("adc", Emit::emit_adc_rr8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
 }
 
 #[test]
-fn test_neg() {
-    test_op1!("neg", Emit::emit_neg);
+fn test_adc_rr16() {
+    test2("adc", Emit::emit_adc_rr16);
 }
 
 #[test]
-fn test_mul() {
-    test_op1!("mul", Emit::emit_mul);
+fn test_adc_rr32() {
+    test2("adc", Emit::emit_adc_rr32);
 }
 
 #[test]
-fn test_imul() {
-    test_op1!("imul", Emit::emit_imul);
+fn test_adc_rr64() {
+    test2("adc", Emit::emit_adc_rr64);
 }
 
 #[test]
-fn test_div() {
-    test_op1!("div", Emit::emit_div);
+fn test_adc_rm8() {
+    test2_filter("adc", Emit::emit_adc_rm8, |r, _| {
+        r.is_encodable_with_rex()
+    });
 }
 
 #[test]
-fn test_idiv() {
-    test_op1!("idiv", Emit::emit_idiv);
+fn test_adc_rm16() {
+    test2("adc", Emit::emit_adc_rm16);
 }
 
 #[test]
-fn test_inc() {
-    test_op1!("inc", Emit::emit_inc);
+fn test_adc_rm32() {
+    test2("adc", Emit::emit_adc_rm32);
 }
 
 #[test]
-fn test_dec() {
-    test_op1!("dec", Emit::emit_dec);
+fn test_adc_rm64() {
+    test2("adc", Emit::emit_adc_rm64);
 }
 
 #[test]
-fn test_test() {
-    test_reg8_imm8("test", Emit::emit_test);
-    test_reg16_imm16("test", Emit::emit_test);
-    test_reg32_imm32("test", Emit::emit_test);
-    test_reg64_imm32("test", Emit::emit_test);
-
-    test_reg8_reg8("test", Emit::emit_test);
-    test_reg16_reg16("test", Emit::emit_test);
-    test_reg32_reg32("test", Emit::emit_test);
-    test_reg64_reg64("test", Emit::emit_test);
-
-    test_byte_ptr_imm8("test", Emit::emit_test);
-    test_word_ptr_imm16("test", Emit::emit_test);
-    test_dword_ptr_imm32("test", Emit::emit_test);
-    test_qword_ptr_imm32("test", Emit::emit_test);
-
-    test_byte_ptr_reg8("test", Emit::emit_test);
-    test_word_ptr_reg16("test", Emit::emit_test);
-    test_dword_ptr_reg32("test", Emit::emit_test);
-    test_qword_ptr_reg64("test", Emit::emit_test);
+fn test_adc_mi8() {
+    test2("adc", Emit::emit_adc_mi8);
 }
 
 #[test]
-fn test_mov() {
-    test_reg8_imm8("mov", Emit::emit_mov);
-    test_reg16_imm16("mov", Emit::emit_mov);
-    test_reg32_imm32("mov", Emit::emit_mov);
-    test_reg64_imm32("mov", Emit::emit_mov);
-    test_reg64_imm64("movabs", Emit::emit_mov);
-
-    test_reg8_reg8("mov", Emit::emit_mov);
-    test_reg16_reg16("mov", Emit::emit_mov);
-    test_reg32_reg32("mov", Emit::emit_mov);
-    test_reg64_reg64("mov", Emit::emit_mov);
-
-    test_reg8_byte_ptr("mov", Emit::emit_mov);
-    test_reg16_word_ptr("mov", Emit::emit_mov);
-    test_reg32_dword_ptr("mov", Emit::emit_mov);
-    test_reg64_qword_ptr("mov", Emit::emit_mov);
-
-    test_byte_ptr_imm8("mov", Emit::emit_mov);
-    test_word_ptr_imm16("mov", Emit::emit_mov);
-    test_dword_ptr_imm32("mov", Emit::emit_mov);
-    test_qword_ptr_imm32("mov", Emit::emit_mov);
-
-    test_byte_ptr_reg8("mov", Emit::emit_mov);
-    test_word_ptr_reg16("mov", Emit::emit_mov);
-    test_dword_ptr_reg32("mov", Emit::emit_mov);
-    test_qword_ptr_reg64("mov", Emit::emit_mov);
+fn test_adc_mi16() {
+    test2("adc", Emit::emit_adc_mi16);
 }
 
 #[test]
-fn test_push() {
-    test_imm8("push", Emit::emit_push);
-    test_imm16("push", Emit::emit_push);
-    test_imm32("push", Emit::emit_push);
-
-    test_reg16("push", Emit::emit_push);
-    test_reg64("push", Emit::emit_push);
-
-    test_word_ptr("push", Emit::emit_push);
-    test_qword_ptr("push", Emit::emit_push);
+fn test_adc_mi32() {
+    test2("adc", Emit::emit_adc_mi32);
 }
 
 #[test]
-fn test_pop() {
-    test_reg16("pop", Emit::emit_pop);
-    test_reg64("pop", Emit::emit_pop);
-    test_word_ptr("pop", Emit::emit_pop);
-    test_qword_ptr("pop", Emit::emit_pop);
+fn test_adc_m64_i32() {
+    test2("adc", Emit::emit_adc_m64_i32);
 }
 
 #[test]
-fn test_call() {
-    test_off32("call", Emit::emit_call);
-    test_reg64("call", Emit::emit_call);
+fn test_adc_m16_i8() {
+    test2("adc", Emit::emit_adc_m16_i8);
 }
 
 #[test]
-fn test_jmp() {
-    test_off8("jmp", Emit::emit_jmp);
-    test_off32("jmp", Emit::emit_jmp);
-    test_reg64("jmp", Emit::emit_jmp);
+fn test_adc_m32_i8() {
+    test2("adc", Emit::emit_adc_m32_i8);
 }
 
 #[test]
-fn test_ret() {
-    test_unit("ret", Emit::emit_ret);
-}
-
-test_cmovcc! {
-    (test_cmova,   "cmova",  Emit::emit_cmova),
-    (test_cmovae,  "cmovae", Emit::emit_cmovae),
-    (test_cmovb,   "cmovb",  Emit::emit_cmovb),
-    (test_cmovbe,  "cmovbe", Emit::emit_cmovbe),
-    (test_cmovc,   "cmovb",  Emit::emit_cmovc),
-    (test_cmove,   "cmove",  Emit::emit_cmove),
-    (test_cmovg,   "cmovg",  Emit::emit_cmovg),
-    (test_cmovge,  "cmovge", Emit::emit_cmovge),
-    (test_cmovl,   "cmovl",  Emit::emit_cmovl),
-    (test_cmovle,  "cmovle", Emit::emit_cmovle),
-    (test_cmovna,  "cmovbe", Emit::emit_cmovna),
-    (test_cmovnae, "cmovb",  Emit::emit_cmovnae),
-    (test_cmovnb,  "cmovae", Emit::emit_cmovnb),
-    (test_cmovnbe, "cmova",  Emit::emit_cmovnbe),
-    (test_cmovnc,  "cmovae", Emit::emit_cmovnc),
-    (test_cmovne,  "cmovne", Emit::emit_cmovne),
-    (test_cmovng,  "cmovle", Emit::emit_cmovng),
-    (test_cmovnge, "cmovl",  Emit::emit_cmovnge),
-    (test_cmovnl,  "cmovge", Emit::emit_cmovnl),
-    (test_cmovnle, "cmovg",  Emit::emit_cmovnle),
-    (test_cmovno,  "cmovno", Emit::emit_cmovno),
-    (test_cmovnp,  "cmovnp", Emit::emit_cmovnp),
-    (test_cmovns,  "cmovns", Emit::emit_cmovns),
-    (test_cmovnz,  "cmovne", Emit::emit_cmovnz),
-    (test_cmovo,   "cmovo",  Emit::emit_cmovo),
-    (test_cmovp,   "cmovp",  Emit::emit_cmovp),
-    (test_cmovpe,  "cmovp",  Emit::emit_cmovpe),
-    (test_cmovpo,  "cmovnp", Emit::emit_cmovpo),
-    (test_cmovs,   "cmovs",  Emit::emit_cmovs),
-    (test_cmovz,   "cmove",  Emit::emit_cmovz),
-}
-
-test_jcc! {
-    (test_ja,   "ja",  Emit::emit_ja),
-    (test_jae,  "jae", Emit::emit_jae),
-    (test_jb,   "jb",  Emit::emit_jb),
-    (test_jbe,  "jbe", Emit::emit_jbe),
-    (test_jc,   "jb",  Emit::emit_jc),
-    (test_je,   "je",  Emit::emit_je),
-    (test_jg,   "jg",  Emit::emit_jg),
-    (test_jge,  "jge", Emit::emit_jge),
-    (test_jl,   "jl",  Emit::emit_jl),
-    (test_jle,  "jle", Emit::emit_jle),
-    (test_jna,  "jbe", Emit::emit_jna),
-    (test_jnae, "jb",  Emit::emit_jnae),
-    (test_jnb,  "jae", Emit::emit_jnb),
-    (test_jnbe, "ja",  Emit::emit_jnbe),
-    (test_jnc,  "jae", Emit::emit_jnc),
-    (test_jne,  "jne", Emit::emit_jne),
-    (test_jng,  "jle", Emit::emit_jng),
-    (test_jnge, "jl",  Emit::emit_jnge),
-    (test_jnl,  "jge", Emit::emit_jnl),
-    (test_jnle, "jg",  Emit::emit_jnle),
-    (test_jno,  "jno", Emit::emit_jno),
-    (test_jnp,  "jnp", Emit::emit_jnp),
-    (test_jns,  "jns", Emit::emit_jns),
-    (test_jnz,  "jne", Emit::emit_jnz),
-    (test_jo,   "jo",  Emit::emit_jo),
-    (test_jp,   "jp",  Emit::emit_jp),
-    (test_jpe,  "jp",  Emit::emit_jpe),
-    (test_jpo,  "jnp", Emit::emit_jpo),
-    (test_js,   "js",  Emit::emit_js),
-    (test_jz,   "je",  Emit::emit_jz),
-}
-
-test_setcc! {
-    (test_seta,   "seta",  Emit::emit_seta),
-    (test_setae,  "setae", Emit::emit_setae),
-    (test_setb,   "setb",  Emit::emit_setb),
-    (test_setbe,  "setbe", Emit::emit_setbe),
-    (test_setc,   "setb",  Emit::emit_setc),
-    (test_sete,   "sete",  Emit::emit_sete),
-    (test_setg,   "setg",  Emit::emit_setg),
-    (test_setge,  "setge", Emit::emit_setge),
-    (test_setl,   "setl",  Emit::emit_setl),
-    (test_setle,  "setle", Emit::emit_setle),
-    (test_setna,  "setbe", Emit::emit_setna),
-    (test_setnae, "setb",  Emit::emit_setnae),
-    (test_setnb,  "setae", Emit::emit_setnb),
-    (test_setnbe, "seta",  Emit::emit_setnbe),
-    (test_setnc,  "setae", Emit::emit_setnc),
-    (test_setne,  "setne", Emit::emit_setne),
-    (test_setng,  "setle", Emit::emit_setng),
-    (test_setnge, "setl",  Emit::emit_setnge),
-    (test_setnl,  "setge", Emit::emit_setnl),
-    (test_setnle, "setg",  Emit::emit_setnle),
-    (test_setno,  "setno", Emit::emit_setno),
-    (test_setnp,  "setnp", Emit::emit_setnp),
-    (test_setns,  "setns", Emit::emit_setns),
-    (test_setnz,  "setne", Emit::emit_setnz),
-    (test_seto,   "seto",  Emit::emit_seto),
-    (test_setp,   "setp",  Emit::emit_setp),
-    (test_setpe,  "setp",  Emit::emit_setpe),
-    (test_setpo,  "setnp", Emit::emit_setpo),
-    (test_sets,   "sets",  Emit::emit_sets),
-    (test_setz,   "sete",  Emit::emit_setz),
+fn test_adc_m64_i8() {
+    test2("adc", Emit::emit_adc_m64_i8);
 }
 
 #[test]
-fn test_lea() {
-    test_reg16_word_ptr("lea", Emit::emit_lea);
-    test_reg32_dword_ptr("lea", Emit::emit_lea);
-    test_reg64_qword_ptr("lea", Emit::emit_lea);
+fn test_adc_mr8() {
+    test2_filter("adc", Emit::emit_adc_mr8, |_, r| {
+        r.is_encodable_with_rex()
+    });
 }
 
 #[test]
-fn test_movzx() {
-    test_reg16_reg8("movzx", Emit::emit_movzx);
-    test_reg32_reg8("movzx", Emit::emit_movzx);
-    test_reg64_reg8("movzx", Emit::emit_movzx);
-
-    test_reg32_reg16("movzx", Emit::emit_movzx);
-    test_reg64_reg16("movzx", Emit::emit_movzx);
-
-    test_reg16_byte_ptr("movzx", Emit::emit_movzx);
-    test_reg32_byte_ptr("movzx", Emit::emit_movzx);
-    test_reg64_byte_ptr("movzx", Emit::emit_movzx);
-
-    test_reg32_word_ptr("movzx", Emit::emit_movzx);
-    test_reg64_word_ptr("movzx", Emit::emit_movzx);
+fn test_adc_mr16() {
+    test2("adc", Emit::emit_adc_mr16);
 }
 
 #[test]
-fn test_movsx() {
-    test_reg16_reg8("movsx", Emit::emit_movsx);
-    test_reg32_reg8("movsx", Emit::emit_movsx);
-    test_reg64_reg8("movsx", Emit::emit_movsx);
-
-    test_reg32_reg16("movsx", Emit::emit_movsx);
-    test_reg64_reg16("movsx", Emit::emit_movsx);
-
-    test_reg16_byte_ptr("movsx", Emit::emit_movsx);
-    test_reg32_byte_ptr("movsx", Emit::emit_movsx);
-    test_reg64_byte_ptr("movsx", Emit::emit_movsx);
-
-    test_reg32_word_ptr("movsx", Emit::emit_movsx);
-    test_reg64_word_ptr("movsx", Emit::emit_movsx);
+fn test_adc_mr32() {
+    test2("adc", Emit::emit_adc_mr32);
 }
 
 #[test]
-fn test_bsf() {
-    test_reg16_reg16("bsf", Emit::emit_bsf);
-    test_reg32_reg32("bsf", Emit::emit_bsf);
-    test_reg64_reg64("bsf", Emit::emit_bsf);
-
-    test_reg16_word_ptr("bsf", Emit::emit_bsf);
-    test_reg32_dword_ptr("bsf", Emit::emit_bsf);
-    test_reg64_qword_ptr("bsf", Emit::emit_bsf);
+fn test_adc_mr64() {
+    test2("adc", Emit::emit_adc_mr64);
 }
 
 #[test]
-fn test_bsr() {
-    test_reg16_reg16("bsr", Emit::emit_bsr);
-    test_reg32_reg32("bsr", Emit::emit_bsr);
-    test_reg64_reg64("bsr", Emit::emit_bsr);
+fn test_add_al_i8() {
+    test1_format("add", Emit::emit_add_al_i8, |s| format!("al, {s}"));
+}
 
-    test_reg16_word_ptr("bsr", Emit::emit_bsr);
-    test_reg32_dword_ptr("bsr", Emit::emit_bsr);
-    test_reg64_qword_ptr("bsr", Emit::emit_bsr);
+#[test]
+fn test_add_ax_i16() {
+    test1_format("add", Emit::emit_add_ax_i16, |s| format!("ax, {s}"));
+}
+
+#[test]
+fn test_add_eax_i32() {
+    test1_format("add", Emit::emit_add_eax_i32, |s| format!("eax, {s}"));
+}
+
+#[test]
+fn test_add_rax_i32() {
+    test1_format("add", Emit::emit_add_rax_i32, |s| format!("rax, {s}"));
+}
+
+#[test]
+fn test_add_ri8() {
+    test2("add", Emit::emit_add_ri8);
+}
+
+#[test]
+fn test_add_ri16() {
+    test2("add", Emit::emit_add_ri16);
+}
+
+#[test]
+fn test_add_ri32() {
+    test2("add", Emit::emit_add_ri32);
+}
+
+#[test]
+fn test_add_r64_i32() {
+    test2("add", Emit::emit_add_r64_i32);
+}
+
+#[test]
+fn test_add_r16_i8() {
+    test2("add", Emit::emit_add_r16_i8);
+}
+
+#[test]
+fn test_add_r32_i8() {
+    test2("add", Emit::emit_add_r32_i8);
+}
+
+#[test]
+fn test_add_r64_i8() {
+    test2("add", Emit::emit_add_r64_i8);
+}
+
+#[test]
+fn test_add_rr8() {
+    test2_filter("add", Emit::emit_add_rr8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_add_rr16() {
+    test2("add", Emit::emit_add_rr16);
+}
+
+#[test]
+fn test_add_rr32() {
+    test2("add", Emit::emit_add_rr32);
+}
+
+#[test]
+fn test_add_rr64() {
+    test2("add", Emit::emit_add_rr64);
+}
+
+#[test]
+fn test_add_rm8() {
+    test2_filter("add", Emit::emit_add_rm8, |r, _| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_add_rm16() {
+    test2("add", Emit::emit_add_rm16);
+}
+
+#[test]
+fn test_add_rm32() {
+    test2("add", Emit::emit_add_rm32);
+}
+
+#[test]
+fn test_add_rm64() {
+    test2("add", Emit::emit_add_rm64);
+}
+
+#[test]
+fn test_add_mi8() {
+    test2("add", Emit::emit_add_mi8);
+}
+
+#[test]
+fn test_add_mi16() {
+    test2("add", Emit::emit_add_mi16);
+}
+
+#[test]
+fn test_add_mi32() {
+    test2("add", Emit::emit_add_mi32);
+}
+
+#[test]
+fn test_add_m64_i32() {
+    test2("add", Emit::emit_add_m64_i32);
+}
+
+#[test]
+fn test_add_m16_i8() {
+    test2("add", Emit::emit_add_m16_i8);
+}
+
+#[test]
+fn test_add_m32_i8() {
+    test2("add", Emit::emit_add_m32_i8);
+}
+
+#[test]
+fn test_add_m64_i8() {
+    test2("add", Emit::emit_add_m64_i8);
+}
+
+#[test]
+fn test_add_mr8() {
+    test2_filter("add", Emit::emit_add_mr8, |_, r| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_add_mr16() {
+    test2("add", Emit::emit_add_mr16);
+}
+
+#[test]
+fn test_add_mr32() {
+    test2("add", Emit::emit_add_mr32);
+}
+
+#[test]
+fn test_add_mr64() {
+    test2("add", Emit::emit_add_mr64);
+}
+
+#[test]
+fn test_and_al_i8() {
+    test1_format("and", Emit::emit_and_al_i8, |s| format!("al, {s}"));
+}
+
+#[test]
+fn test_and_ax_i16() {
+    test1_format("and", Emit::emit_and_ax_i16, |s| format!("ax, {s}"));
+}
+
+#[test]
+fn test_and_eax_i32() {
+    test1_format("and", Emit::emit_and_eax_i32, |s| format!("eax, {s}"));
+}
+
+#[test]
+fn test_and_rax_i32() {
+    test1_format_filter::<u64>("and", |e, imm| e.emit_and_rax_i32(imm as i32),
+        |s| format!("rax, {s}"),
+        |imm| is_signed_nbit_integer(32, imm as i64));
+}
+
+#[test]
+fn test_and_ri8() {
+    test2("and", Emit::emit_and_ri8);
+}
+
+#[test]
+fn test_and_ri16() {
+    test2("and", Emit::emit_and_ri16);
+}
+
+#[test]
+fn test_and_ri32() {
+    test2("and", Emit::emit_and_ri32);
+}
+
+#[test]
+fn test_and_r64_i32() {
+    test2_filter::<_, u64>("and", |e, r, imm| e.emit_and_r64_i32(r, imm as i32),
+        |_, imm| is_signed_nbit_integer(32, imm as i64));
+}
+
+#[test]
+fn test_and_r16_i8() {
+    test2_filter::<_, u16>("and", |e, r, imm| e.emit_and_r16_i8(r, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i16));
+}
+
+#[test]
+fn test_and_r32_i8() {
+    test2_filter::<_, u32>("and", |e, r, imm| e.emit_and_r32_i8(r, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i32));
+}
+
+#[test]
+fn test_and_r64_i8() {
+    test2_filter::<_, u64>("and", |e, r, imm| e.emit_and_r64_i8(r, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i64));
+}
+
+#[test]
+fn test_and_rr8() {
+    test2_filter("and", Emit::emit_and_rr8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_and_rr16() {
+    test2("and", Emit::emit_and_rr16);
+}
+
+#[test]
+fn test_and_rr32() {
+    test2("and", Emit::emit_and_rr32);
+}
+
+#[test]
+fn test_and_rr64() {
+    test2("and", Emit::emit_and_rr64);
+}
+
+#[test]
+fn test_and_rm8() {
+    test2_filter("and", Emit::emit_and_rm8, |r, _| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_and_rm16() {
+    test2("and", Emit::emit_and_rm16);
+}
+
+#[test]
+fn test_and_rm32() {
+    test2("and", Emit::emit_and_rm32);
+}
+
+#[test]
+fn test_and_rm64() {
+    test2("and", Emit::emit_and_rm64);
+}
+
+#[test]
+fn test_and_mi8() {
+    test2("and", Emit::emit_and_mi8);
+}
+
+#[test]
+fn test_and_mi16() {
+    test2("and", Emit::emit_and_mi16);
+}
+
+#[test]
+fn test_and_mi32() {
+    test2("and", Emit::emit_and_mi32);
+}
+
+#[test]
+fn test_and_m64_i32() {
+    test2_filter::<_, u64>("and", |e, m, imm| e.emit_and_m64_i32(m, imm as i32),
+        |_, imm| is_signed_nbit_integer(32, imm as i64));
+}
+
+#[test]
+fn test_and_m16_i8() {
+    test2_filter::<_, u16>("and", |e, m, imm| e.emit_and_m16_i8(m, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i16));
+}
+
+#[test]
+fn test_and_m32_i8() {
+    test2_filter::<_, u32>("and", |e, m, imm| e.emit_and_m32_i8(m, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i32));
+}
+
+#[test]
+fn test_and_m64_i8() {
+    test2_filter::<_, u64>("and", |e, m, imm| e.emit_and_m64_i8(m, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i64));
+}
+
+#[test]
+fn test_and_mr8() {
+    test2_filter("and", Emit::emit_and_mr8, |_, r| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_and_mr16() {
+    test2("and", Emit::emit_and_mr16);
+}
+
+#[test]
+fn test_and_mr32() {
+    test2("and", Emit::emit_and_mr32);
+}
+
+#[test]
+fn test_and_mr64() {
+    test2("and", Emit::emit_and_mr64);
+}
+
+#[test]
+fn test_bsf_rr16() {
+    test2("bsf", Emit::emit_bsf_rr16);
+}
+
+#[test]
+fn test_bsf_rr32() {
+    test2("bsf", Emit::emit_bsf_rr32);
+}
+
+#[test]
+fn test_bsf_rr64() {
+    test2("bsf", Emit::emit_bsf_rr64);
+}
+
+#[test]
+fn test_bsf_rm16() {
+    test2("bsf", Emit::emit_bsf_rm16);
+}
+
+#[test]
+fn test_bsf_rm32() {
+    test2("bsf", Emit::emit_bsf_rm32);
+}
+
+#[test]
+fn test_bsf_rm64() {
+    test2("bsf", Emit::emit_bsf_rm64);
+}
+
+#[test]
+fn test_bsr_rr16() {
+    test2("bsr", Emit::emit_bsr_rr16);
+}
+
+#[test]
+fn test_bsr_rr32() {
+    test2("bsr", Emit::emit_bsr_rr32);
+}
+
+#[test]
+fn test_bsr_rr64() {
+    test2("bsr", Emit::emit_bsr_rr64);
+}
+
+#[test]
+fn test_bsr_rm16() {
+    test2("bsr", Emit::emit_bsr_rm16);
+}
+
+#[test]
+fn test_bsr_rm32() {
+    test2("bsr", Emit::emit_bsr_rm32);
+}
+
+#[test]
+fn test_bsr_rm64() {
+    test2("bsr", Emit::emit_bsr_rm64);
+}
+
+#[test]
+fn test_call_rel32() {
+    test1("call", Emit::emit_call_rel32);
+}
+
+#[test]
+fn test_call_r64() {
+    test1("call", Emit::emit_call_r64);
 }
 
 #[test]
 fn test_cdq() {
-    test_unit("cdq", Emit::emit_cdq);
+    test0("cdq", Emit::emit_cdq);
 }
 
 #[test]
-fn test_xchg() {
-    test_reg8_reg8("xchg", Emit::emit_xchg);
-    test_different_reg_reg("xchg", |v, (r1, r2)| Emit::emit_xchg(v, r1, r2),
-                           REGS16,
-                           |r1, r2| (Operand::Reg16(r1), Operand::Reg16(r2)),
-                           |s1, s2| format!("{}, {}", s1, s2));
-    test_different_reg_reg("xchg", |v, (r1, r2)| Emit::emit_xchg(v, r1, r2),
-                           REGS32,
-                           |r1, r2| (Operand::Reg32(r1), Operand::Reg32(r2)),
-                           |s1, s2| format!("{}, {}", s1, s2));
-    test_different_reg_reg("xchg", |v, (r1, r2)| Emit::emit_xchg(v, r1, r2),
-                           REGS64,
-                           |r1, r2| (Operand::Reg64(r1), Operand::Reg64(r2)),
-                           |s1, s2| format!("{}, {}", s1, s2));
+fn test_cmovcc_rr16() {
+    test3_cond("cmov", Emit::emit_cmovcc_rr16);
+}
 
-    test_byte_ptr_reg8("xchg", Emit::emit_xchg);
-    test_word_ptr_reg16("xchg", Emit::emit_xchg);
-    test_dword_ptr_reg32("xchg", Emit::emit_xchg);
-    test_qword_ptr_reg64("xchg", Emit::emit_xchg);
+#[test]
+fn test_cmovcc_rr32() {
+    test3_cond("cmov", Emit::emit_cmovcc_rr32);
+}
 
-    fn test_different_reg_reg<'a, F, RS, AF, DF, R, T, S>(mnemonic: &str, f: F, regs: RS, arg: AF, disasm: DF)
-        where F: Fn(&mut Vec<u8>, T) -> Result<()>,
-              RS: AsRef<[(R, &'static str)]>,
-              AF: Fn(R, R) -> T,
-              DF: Fn(&'a str, &'a str) -> S,
-              R: Copy + PartialEq,
-              S: 'a + AsRef<str>
-    {
-        let mut code = Vec::new();
+#[test]
+fn test_cmovcc_rr64() {
+    test3_cond("cmov", Emit::emit_cmovcc_rr64);
+}
 
-        let regs = regs.as_ref();
+#[test]
+fn test_cmovcc_rm16() {
+    test3_cond("cmov", Emit::emit_cmovcc_rm16);
+}
 
-        for i in 0..(regs.len()-1) {
-            let &(r1, _) = &regs[i];
-            for &(r2, _) in &regs[i+1..] {
-                f(&mut code, arg(r1, r2)).unwrap();
-            }
-        }
+#[test]
+fn test_cmovcc_rm32() {
+    test3_cond("cmov", Emit::emit_cmovcc_rm32);
+}
 
-        print_code(&code);
+#[test]
+fn test_cmovcc_rm64() {
+    test3_cond("cmov", Emit::emit_cmovcc_rm64);
+}
 
-        let mut expected_disasm = Vec::new();
+#[test]
+fn test_cmp_al_i8() {
+    test1_format("cmp", Emit::emit_cmp_al_i8, |s| format!("al, {s}"));
+}
 
-        for i in 0..(regs.len()-1) {
-            let &(_, s1) = &regs[i];
-            for &(_, s2) in &regs[i+1..] {
-                expected_disasm.push(Some(disasm(s1, s2)));
-            }
-        }
+#[test]
+fn test_cmp_ax_i16() {
+    test1_format("cmp", Emit::emit_cmp_ax_i16, |s| format!("ax, {s}"));
+}
 
-        test_disasm(mnemonic, &expected_disasm, &code);
-    }
+#[test]
+fn test_cmp_eax_i32() {
+    test1_format("cmp", Emit::emit_cmp_eax_i32, |s| format!("eax, {s}"));
+}
+
+#[test]
+fn test_cmp_rax_i32() {
+    test1_format("cmp", Emit::emit_cmp_rax_i32, |s| format!("rax, {s}"));
+}
+
+#[test]
+fn test_cmp_ri8() {
+    test2("cmp", Emit::emit_cmp_ri8);
+}
+
+#[test]
+fn test_cmp_ri16() {
+    test2("cmp", Emit::emit_cmp_ri16);
+}
+
+#[test]
+fn test_cmp_ri32() {
+    test2("cmp", Emit::emit_cmp_ri32);
+}
+
+#[test]
+fn test_cmp_r64_i32() {
+    test2("cmp", Emit::emit_cmp_r64_i32);
+}
+
+#[test]
+fn test_cmp_r16_i8() {
+    test2("cmp", Emit::emit_cmp_r16_i8);
+}
+
+#[test]
+fn test_cmp_r32_i8() {
+    test2("cmp", Emit::emit_cmp_r32_i8);
+}
+
+#[test]
+fn test_cmp_r64_i8() {
+    test2("cmp", Emit::emit_cmp_r64_i8);
+}
+
+#[test]
+fn test_cmp_rr8() {
+    test2_filter("cmp", Emit::emit_cmp_rr8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_cmp_rr16() {
+    test2("cmp", Emit::emit_cmp_rr16);
+}
+
+#[test]
+fn test_cmp_rr32() {
+    test2("cmp", Emit::emit_cmp_rr32);
+}
+
+#[test]
+fn test_cmp_rr64() {
+    test2("cmp", Emit::emit_cmp_rr64);
+}
+
+#[test]
+fn test_cmp_rm8() {
+    test2_filter("cmp", Emit::emit_cmp_rm8, |r, _| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_cmp_rm16() {
+    test2("cmp", Emit::emit_cmp_rm16);
+}
+
+#[test]
+fn test_cmp_rm32() {
+    test2("cmp", Emit::emit_cmp_rm32);
+}
+
+#[test]
+fn test_cmp_rm64() {
+    test2("cmp", Emit::emit_cmp_rm64);
+}
+
+#[test]
+fn test_cmp_mi8() {
+    test2("cmp", Emit::emit_cmp_mi8);
+}
+
+#[test]
+fn test_cmp_mi16() {
+    test2("cmp", Emit::emit_cmp_mi16);
+}
+
+#[test]
+fn test_cmp_mi32() {
+    test2("cmp", Emit::emit_cmp_mi32);
+}
+
+#[test]
+fn test_cmp_m64_i32() {
+    test2("cmp", Emit::emit_cmp_m64_i32);
+}
+
+#[test]
+fn test_cmp_m16_i8() {
+    test2("cmp", Emit::emit_cmp_m16_i8);
+}
+
+#[test]
+fn test_cmp_m32_i8() {
+    test2("cmp", Emit::emit_cmp_m32_i8);
+}
+
+#[test]
+fn test_cmp_m64_i8() {
+    test2("cmp", Emit::emit_cmp_m64_i8);
+}
+
+#[test]
+fn test_cmp_mr8() {
+    test2_filter("cmp", Emit::emit_cmp_mr8, |_, r| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_cmp_mr16() {
+    test2("cmp", Emit::emit_cmp_mr16);
+}
+
+#[test]
+fn test_cmp_mr32() {
+    test2("cmp", Emit::emit_cmp_mr32);
+}
+
+#[test]
+fn test_cmp_mr64() {
+    test2("cmp", Emit::emit_cmp_mr64);
+}
+
+#[test]
+fn test_dec_r8() {
+    test1("dec", Emit::emit_dec_r8);
+}
+
+#[test]
+fn test_dec_r16() {
+    test1("dec", Emit::emit_dec_r16);
+}
+
+#[test]
+fn test_dec_r32() {
+    test1("dec", Emit::emit_dec_r32);
+}
+
+#[test]
+fn test_dec_r64() {
+    test1("dec", Emit::emit_dec_r64);
+}
+
+#[test]
+fn test_dec_m8() {
+    test1("dec", Emit::emit_dec_m8);
+}
+
+#[test]
+fn test_dec_m16() {
+    test1("dec", Emit::emit_dec_m16);
+}
+
+#[test]
+fn test_dec_m32() {
+    test1("dec", Emit::emit_dec_m32);
+}
+
+#[test]
+fn test_dec_m64() {
+    test1("dec", Emit::emit_dec_m64);
+}
+
+#[test]
+fn test_div_r8() {
+    test1("div", Emit::emit_div_r8);
+}
+
+#[test]
+fn test_div_r16() {
+    test1("div", Emit::emit_div_r16);
+}
+
+#[test]
+fn test_div_r32() {
+    test1("div", Emit::emit_div_r32);
+}
+
+#[test]
+fn test_div_r64() {
+    test1("div", Emit::emit_div_r64);
+}
+
+#[test]
+fn test_div_m8() {
+    test1("div", Emit::emit_div_m8);
+}
+
+#[test]
+fn test_div_m16() {
+    test1("div", Emit::emit_div_m16);
+}
+
+#[test]
+fn test_div_m32() {
+    test1("div", Emit::emit_div_m32);
+}
+
+#[test]
+fn test_div_m64() {
+    test1("div", Emit::emit_div_m64);
+}
+
+#[test]
+fn test_idiv_r8() {
+    test1("idiv", Emit::emit_idiv_r8);
+}
+
+#[test]
+fn test_idiv_r16() {
+    test1("idiv", Emit::emit_idiv_r16);
+}
+
+#[test]
+fn test_idiv_r32() {
+    test1("idiv", Emit::emit_idiv_r32);
+}
+
+#[test]
+fn test_idiv_r64() {
+    test1("idiv", Emit::emit_idiv_r64);
+}
+
+#[test]
+fn test_idiv_m8() {
+    test1("idiv", Emit::emit_idiv_m8);
+}
+
+#[test]
+fn test_idiv_m16() {
+    test1("idiv", Emit::emit_idiv_m16);
+}
+
+#[test]
+fn test_idiv_m32() {
+    test1("idiv", Emit::emit_idiv_m32);
+}
+
+#[test]
+fn test_idiv_m64() {
+    test1("idiv", Emit::emit_idiv_m64);
+}
+
+#[test]
+fn test_imul_r8() {
+    test1("imul", Emit::emit_imul_r8);
+}
+
+#[test]
+fn test_imul_r16() {
+    test1("imul", Emit::emit_imul_r16);
+}
+
+#[test]
+fn test_imul_r32() {
+    test1("imul", Emit::emit_imul_r32);
+}
+
+#[test]
+fn test_imul_r64() {
+    test1("imul", Emit::emit_imul_r64);
+}
+
+#[test]
+fn test_imul_m8() {
+    test1("imul", Emit::emit_imul_m8);
+}
+
+#[test]
+fn test_imul_m16() {
+    test1("imul", Emit::emit_imul_m16);
+}
+
+#[test]
+fn test_imul_m32() {
+    test1("imul", Emit::emit_imul_m32);
+}
+
+#[test]
+fn test_imul_m64() {
+    test1("imul", Emit::emit_imul_m64);
+}
+
+#[test]
+fn test_inc_r8() {
+    test1("inc", Emit::emit_inc_r8);
+}
+
+#[test]
+fn test_inc_r16() {
+    test1("inc", Emit::emit_inc_r16);
+}
+
+#[test]
+fn test_inc_r32() {
+    test1("inc", Emit::emit_inc_r32);
+}
+
+#[test]
+fn test_inc_r64() {
+    test1("inc", Emit::emit_inc_r64);
+}
+
+#[test]
+fn test_inc_m8() {
+    test1("inc", Emit::emit_inc_m8);
+}
+
+#[test]
+fn test_inc_m16() {
+    test1("inc", Emit::emit_inc_m16);
+}
+
+#[test]
+fn test_inc_m32() {
+    test1("inc", Emit::emit_inc_m32);
+}
+
+#[test]
+fn test_inc_m64() {
+    test1("inc", Emit::emit_inc_m64);
+}
+
+#[test]
+fn test_jcc_rel8() {
+    test2_cond("j", Emit::emit_jcc_rel8);
+}
+
+#[test]
+fn test_jcc_rel32() {
+    test2_cond("j", Emit::emit_jcc_rel32);
+}
+
+#[test]
+fn test_jmp_rel8() {
+    test1("jmp", Emit::emit_jmp_rel8);
+}
+
+#[test]
+fn test_jmp_rel32() {
+    test1("jmp", Emit::emit_jmp_rel32);
+}
+
+#[test]
+fn test_jmp_r64() {
+    test1("jmp", Emit::emit_jmp_r64);
+}
+
+#[test]
+#[ignore]
+fn test_lea_rm16() {
+    // FIXME capstone formats without "word ptr"
+    test2("lea", Emit::emit_lea_rm16);
+}
+
+#[test]
+#[ignore]
+fn test_lea_rm32() {
+    // FIXME capstone formats without "dword ptr"
+    test2("lea", Emit::emit_lea_rm32);
+}
+
+#[test]
+#[ignore]
+fn test_lea_rm64() {
+    // FIXME capstone formats without "qword ptr"
+    test2("lea", Emit::emit_lea_rm64);
+}
+
+#[test]
+fn test_mul_r8() {
+    test1("mul", Emit::emit_mul_r8);
+}
+
+#[test]
+fn test_mul_r16() {
+    test1("mul", Emit::emit_mul_r16);
+}
+
+#[test]
+fn test_mul_r32() {
+    test1("mul", Emit::emit_mul_r32);
+}
+
+#[test]
+fn test_mul_r64() {
+    test1("mul", Emit::emit_mul_r64);
+}
+
+#[test]
+fn test_mul_m8() {
+    test1("mul", Emit::emit_mul_m8);
+}
+
+#[test]
+fn test_mul_m16() {
+    test1("mul", Emit::emit_mul_m16);
+}
+
+#[test]
+fn test_mul_m32() {
+    test1("mul", Emit::emit_mul_m32);
+}
+
+#[test]
+fn test_mul_m64() {
+    test1("mul", Emit::emit_mul_m64);
+}
+
+#[test]
+fn test_mov_ri8() {
+    test2("mov", Emit::emit_mov_ri8);
+}
+
+#[test]
+fn test_mov_ri16() {
+    test2("mov", Emit::emit_mov_ri16);
+}
+
+#[test]
+fn test_mov_ri32() {
+    test2("mov", Emit::emit_mov_ri32);
+}
+
+#[test]
+fn test_mov_ri64() {
+    test2("movabs", Emit::emit_mov_ri64);
+}
+
+#[test]
+fn test_mov_r64_i32() {
+    test2_filter::<_, u64>("mov", |e, r, imm| e.emit_mov_r64_i32(r, imm as i32),
+        |_, imm| is_signed_nbit_integer(32, imm as i64));
+}
+
+#[test]
+fn test_mov_rr8() {
+    test2_filter("mov", Emit::emit_mov_rr8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_mov_rr16() {
+    test2("mov", Emit::emit_mov_rr16);
+}
+
+#[test]
+fn test_mov_rr32() {
+    test2("mov", Emit::emit_mov_rr32);
+}
+
+#[test]
+fn test_mov_rr64() {
+    test2("mov", Emit::emit_mov_rr64);
+}
+
+#[test]
+fn test_mov_rm8() {
+    test2_filter("mov", Emit::emit_mov_rm8, |r, _| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_mov_rm16() {
+    test2("mov", Emit::emit_mov_rm16);
+}
+
+#[test]
+fn test_mov_rm32() {
+    test2("mov", Emit::emit_mov_rm32);
+}
+
+#[test]
+fn test_mov_rm64() {
+    test2("mov", Emit::emit_mov_rm64);
+}
+
+#[test]
+fn test_mov_mi8() {
+    test2("mov", Emit::emit_mov_mi8);
+}
+
+#[test]
+fn test_mov_mi16() {
+    test2("mov", Emit::emit_mov_mi16);
+}
+
+#[test]
+fn test_mov_mi32() {
+    test2("mov", Emit::emit_mov_mi32);
+}
+
+#[test]
+fn test_mov_m64_i32() {
+    test2_filter::<_, u64>("mov", |e, m, imm| e.emit_mov_m64_i32(m, imm as i32),
+        |_, imm| is_signed_nbit_integer(32, imm as i64));
+}
+
+#[test]
+fn test_mov_mr8() {
+    test2_filter("mov", Emit::emit_mov_mr8, |_, r| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_mov_mr16() {
+    test2("mov", Emit::emit_mov_mr16);
+}
+
+#[test]
+fn test_mov_mr32() {
+    test2("mov", Emit::emit_mov_mr32);
+}
+
+#[test]
+fn test_mov_mr64() {
+    test2("mov", Emit::emit_mov_mr64);
+}
+
+#[test]
+fn test_movsx_r16_r8() {
+    test2_filter("movsx", Emit::emit_movsx_r16_r8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_movsx_r32_r8() {
+    test2_filter("movsx", Emit::emit_movsx_r32_r8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_movsx_r64_r8() {
+    test2_filter("movsx", Emit::emit_movsx_r64_r8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_movsx_r32_r16() {
+    test2("movsx", Emit::emit_movsx_r32_r16);
+}
+
+#[test]
+fn test_movsx_r64_r16() {
+    test2("movsx", Emit::emit_movsx_r64_r16);
+}
+
+#[test]
+fn test_movsx_r16_m8() {
+    test2("movsx", Emit::emit_movsx_r16_m8);
+}
+
+#[test]
+fn test_movsx_r32_m8() {
+    test2("movsx", Emit::emit_movsx_r32_m8);
+}
+
+#[test]
+fn test_movsx_r64_m8() {
+    test2("movsx", Emit::emit_movsx_r64_m8);
+}
+
+#[test]
+fn test_movsx_r32_m16() {
+    test2("movsx", Emit::emit_movsx_r32_m16);
+}
+
+#[test]
+fn test_movsx_r64_m16() {
+    test2("movsx", Emit::emit_movsx_r64_m16);
+}
+
+#[test]
+fn test_movzx_r16_r8() {
+    test2_filter("movzx", Emit::emit_movzx_r16_r8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_movzx_r32_r8() {
+    test2_filter("movzx", Emit::emit_movzx_r32_r8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_movzx_r64_r8() {
+    test2_filter("movzx", Emit::emit_movzx_r64_r8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_movzx_r32_r16() {
+    test2("movzx", Emit::emit_movzx_r32_r16);
+}
+
+#[test]
+fn test_movzx_r64_r16() {
+    test2("movzx", Emit::emit_movzx_r64_r16);
+}
+
+#[test]
+fn test_movzx_r16_m8() {
+    test2("movzx", Emit::emit_movzx_r16_m8);
+}
+
+#[test]
+fn test_movzx_r32_m8() {
+    test2("movzx", Emit::emit_movzx_r32_m8);
+}
+
+#[test]
+fn test_movzx_r64_m8() {
+    test2("movzx", Emit::emit_movzx_r64_m8);
+}
+
+#[test]
+fn test_movzx_r32_m16() {
+    test2("movzx", Emit::emit_movzx_r32_m16);
+}
+
+#[test]
+fn test_movzx_r64_m16() {
+    test2("movzx", Emit::emit_movzx_r64_m16);
+}
+
+#[test]
+fn test_neg_r8() {
+    test1("neg", Emit::emit_neg_r8);
+}
+
+#[test]
+fn test_neg_r16() {
+    test1("neg", Emit::emit_neg_r16);
+}
+
+#[test]
+fn test_neg_r32() {
+    test1("neg", Emit::emit_neg_r32);
+}
+
+#[test]
+fn test_neg_r64() {
+    test1("neg", Emit::emit_neg_r64);
+}
+
+#[test]
+fn test_neg_m8() {
+    test1("neg", Emit::emit_neg_m8);
+}
+
+#[test]
+fn test_neg_m16() {
+    test1("neg", Emit::emit_neg_m16);
+}
+
+#[test]
+fn test_neg_m32() {
+    test1("neg", Emit::emit_neg_m32);
+}
+
+#[test]
+fn test_neg_m64() {
+    test1("neg", Emit::emit_neg_m64);
+}
+
+#[test]
+fn test_nop() {
+    test0("nop", Emit::emit_nop);
+}
+
+#[test]
+fn test_not_r8() {
+    test1("not", Emit::emit_not_r8);
+}
+
+#[test]
+fn test_not_r16() {
+    test1("not", Emit::emit_not_r16);
+}
+
+#[test]
+fn test_not_r32() {
+    test1("not", Emit::emit_not_r32);
+}
+
+#[test]
+fn test_not_r64() {
+    test1("not", Emit::emit_not_r64);
+}
+
+#[test]
+fn test_not_m8() {
+    test1("not", Emit::emit_not_m8);
+}
+
+#[test]
+fn test_not_m16() {
+    test1("not", Emit::emit_not_m16);
+}
+
+#[test]
+fn test_not_m32() {
+    test1("not", Emit::emit_not_m32);
+}
+
+#[test]
+fn test_not_m64() {
+    test1("not", Emit::emit_not_m64);
+}
+
+#[test]
+fn test_or_al_i8() {
+    test1_format("or", Emit::emit_or_al_i8, |s| format!("al, {s}"));
+}
+
+#[test]
+fn test_or_ax_i16() {
+    test1_format("or", Emit::emit_or_ax_i16, |s| format!("ax, {s}"));
+}
+
+#[test]
+fn test_or_eax_i32() {
+    test1_format("or", Emit::emit_or_eax_i32, |s| format!("eax, {s}"));
+}
+
+#[test]
+fn test_or_rax_i32() {
+    test1_format_filter::<u64>("and", |e, imm| e.emit_and_rax_i32(imm as i32),
+        |s| format!("rax, {s}"),
+        |imm| is_signed_nbit_integer(32, imm as i64));
+}
+
+#[test]
+fn test_or_ri8() {
+    test2("or", Emit::emit_or_ri8);
+}
+
+#[test]
+fn test_or_ri16() {
+    test2("or", Emit::emit_or_ri16);
+}
+
+#[test]
+fn test_or_ri32() {
+    test2("or", Emit::emit_or_ri32);
+}
+
+#[test]
+fn test_or_r64_i32() {
+    test2_filter::<_, u64>("or", |e, r, imm| e.emit_or_r64_i32(r, imm as i32),
+        |_, imm| is_signed_nbit_integer(32, imm as i64));
+}
+
+#[test]
+fn test_or_r16_i8() {
+    test2_filter::<_, u16>("or", |e, r, imm| e.emit_or_r16_i8(r, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i16));
+}
+
+#[test]
+fn test_or_r32_i8() {
+    test2_filter::<_, u32>("or", |e, r, imm| e.emit_or_r32_i8(r, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i32));
+}
+
+#[test]
+fn test_or_r64_i8() {
+    test2_filter::<_, u64>("or", |e, r, imm| e.emit_or_r64_i8(r, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i64));
+}
+
+#[test]
+fn test_or_rr8() {
+    test2_filter("or", Emit::emit_or_rr8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_or_rr16() {
+    test2("or", Emit::emit_or_rr16);
+}
+
+#[test]
+fn test_or_rr32() {
+    test2("or", Emit::emit_or_rr32);
+}
+
+#[test]
+fn test_or_rr64() {
+    test2("or", Emit::emit_or_rr64);
+}
+
+#[test]
+fn test_or_rm8() {
+    test2_filter("or", Emit::emit_or_rm8, |r, _| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_or_rm16() {
+    test2("or", Emit::emit_or_rm16);
+}
+
+#[test]
+fn test_or_rm32() {
+    test2("or", Emit::emit_or_rm32);
+}
+
+#[test]
+fn test_or_rm64() {
+    test2("or", Emit::emit_or_rm64);
+}
+
+#[test]
+fn test_or_mi8() {
+    test2("or", Emit::emit_or_mi8);
+}
+
+#[test]
+fn test_or_mi16() {
+    test2("or", Emit::emit_or_mi16);
+}
+
+#[test]
+fn test_or_mi32() {
+    test2("or", Emit::emit_or_mi32);
+}
+
+#[test]
+fn test_or_m64_i32() {
+    test2_filter::<_, u64>("or", |e, m, imm| e.emit_or_m64_i32(m, imm as i32),
+        |_, imm| is_signed_nbit_integer(32, imm as i64));
+}
+
+#[test]
+fn test_or_m16_i8() {
+    test2_filter::<_, u16>("or", |e, m, imm| e.emit_or_m16_i8(m, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i16));
+}
+
+#[test]
+fn test_or_m32_i8() {
+    test2_filter::<_, u32>("or", |e, m, imm| e.emit_or_m32_i8(m, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i32));
+}
+
+#[test]
+fn test_or_m64_i8() {
+    test2_filter::<_, u64>("or", |e, m, imm| e.emit_or_m64_i8(m, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i64));
+}
+
+#[test]
+fn test_or_mr8() {
+    test2_filter("or", Emit::emit_or_mr8, |_, r| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_or_mr16() {
+    test2("or", Emit::emit_or_mr16);
+}
+
+#[test]
+fn test_or_mr32() {
+    test2("or", Emit::emit_or_mr32);
+}
+
+#[test]
+fn test_or_mr64() {
+    test2("or", Emit::emit_or_mr64);
+}
+
+#[test]
+fn test_pop_r16() {
+    test1("pop", Emit::emit_pop_r16);
+}
+
+#[test]
+fn test_pop_r64() {
+    test1("pop", Emit::emit_pop_r64);
+}
+
+#[test]
+fn test_pop_m16() {
+    test1("pop", Emit::emit_pop_m16);
+}
+
+#[test]
+fn test_pop_m64() {
+    test1("pop", Emit::emit_pop_m64);
+}
+
+#[test]
+fn test_push_i8() {
+    test1("push", Emit::emit_push_i8);
+}
+
+#[test]
+fn test_push_i16() {
+    test1("push", Emit::emit_push_i16);
+}
+
+#[test]
+fn test_push_i32() {
+    test1("push", Emit::emit_push_i32);
+}
+
+#[test]
+fn test_push_r16() {
+    test1("push", Emit::emit_push_r16);
+}
+
+#[test]
+fn test_push_r64() {
+    test1("push", Emit::emit_push_r64);
+}
+
+#[test]
+fn test_push_m16() {
+    test1("push", Emit::emit_push_m16);
+}
+
+#[test]
+fn test_push_m64() {
+    test1("push", Emit::emit_push_m64);
+}
+
+#[test]
+fn test_ret() {
+    test0("ret", Emit::emit_ret);
+}
+
+#[test]
+fn test_sar_r8_1() {
+    test1_format("sar", Emit::emit_sar_r8_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_sar_r16_1() {
+    test1_format("sar", Emit::emit_sar_r16_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_sar_r32_1() {
+    test1_format("sar", Emit::emit_sar_r32_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_sar_r64_1() {
+    test1_format("sar", Emit::emit_sar_r64_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_sar_r8_cl() {
+    test1_format("sar", Emit::emit_sar_r8_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_sar_r16_cl() {
+    test1_format("sar", Emit::emit_sar_r16_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_sar_r32_cl() {
+    test1_format("sar", Emit::emit_sar_r32_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_sar_r64_cl() {
+    test1_format("sar", Emit::emit_sar_r64_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_sar_ri8() {
+    test2("sar", Emit::emit_sar_ri8);
+}
+
+#[test]
+fn test_sar_ri16() {
+    test2("sar", Emit::emit_sar_ri16);
+}
+
+#[test]
+fn test_sar_ri32() {
+    test2("sar", Emit::emit_sar_ri32);
+}
+
+#[test]
+fn test_sar_ri64() {
+    test2("sar", Emit::emit_sar_ri64);
+}
+
+#[test]
+fn test_sar_m8_1() {
+    test1_format("sar", Emit::emit_sar_m8_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_sar_m16_1() {
+    test1_format("sar", Emit::emit_sar_m16_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_sar_m32_1() {
+    test1_format("sar", Emit::emit_sar_m32_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_sar_m64_1() {
+    test1_format("sar", Emit::emit_sar_m64_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_sar_m8_cl() {
+    test1_format("sar", Emit::emit_sar_m8_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_sar_m16_cl() {
+    test1_format("sar", Emit::emit_sar_m16_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_sar_m32_cl() {
+    test1_format("sar", Emit::emit_sar_m32_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_sar_m64_cl() {
+    test1_format("sar", Emit::emit_sar_m64_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_sar_mi8() {
+    test2("sar", Emit::emit_sar_mi8);
+}
+
+#[test]
+fn test_sar_mi16() {
+    test2("sar", Emit::emit_sar_mi16);
+}
+
+#[test]
+fn test_sar_mi32() {
+    test2("sar", Emit::emit_sar_mi32);
+}
+
+#[test]
+fn test_sar_mi64() {
+    test2("sar", Emit::emit_sar_mi64);
+}
+
+#[test]
+fn test_sbb_al_i8() {
+    test1_format("sbb", Emit::emit_sbb_al_i8, |s| format!("al, {s}"));
+}
+
+#[test]
+fn test_sbb_ax_i16() {
+    test1_format("sbb", Emit::emit_sbb_ax_i16, |s| format!("ax, {s}"));
+}
+
+#[test]
+fn test_sbb_eax_i32() {
+    test1_format("sbb", Emit::emit_sbb_eax_i32, |s| format!("eax, {s}"));
+}
+
+#[test]
+fn test_sbb_rax_i32() {
+    test1_format("sbb", Emit::emit_sbb_rax_i32, |s| format!("rax, {s}"));
+}
+
+#[test]
+fn test_sbb_ri8() {
+    test2("sbb", Emit::emit_sbb_ri8);
+}
+
+#[test]
+fn test_sbb_ri16() {
+    test2("sbb", Emit::emit_sbb_ri16);
+}
+
+#[test]
+fn test_sbb_ri32() {
+    test2("sbb", Emit::emit_sbb_ri32);
+}
+
+#[test]
+fn test_sbb_r64_i32() {
+    test2("sbb", Emit::emit_sbb_r64_i32);
+}
+
+#[test]
+fn test_sbb_r16_i8() {
+    test2("sbb", Emit::emit_sbb_r16_i8);
+}
+
+#[test]
+fn test_sbb_r32_i8() {
+    test2("sbb", Emit::emit_sbb_r32_i8);
+}
+
+#[test]
+fn test_sbb_r64_i8() {
+    test2("sbb", Emit::emit_sbb_r64_i8);
+}
+
+#[test]
+fn test_sbb_rr8() {
+    test2_filter("sbb", Emit::emit_sbb_rr8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_sbb_rr16() {
+    test2("sbb", Emit::emit_sbb_rr16);
+}
+
+#[test]
+fn test_sbb_rr32() {
+    test2("sbb", Emit::emit_sbb_rr32);
+}
+
+#[test]
+fn test_sbb_rr64() {
+    test2("sbb", Emit::emit_sbb_rr64);
+}
+
+#[test]
+fn test_sbb_rm8() {
+    test2_filter("sbb", Emit::emit_sbb_rm8, |r, _| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_sbb_rm16() {
+    test2("sbb", Emit::emit_sbb_rm16);
+}
+
+#[test]
+fn test_sbb_rm32() {
+    test2("sbb", Emit::emit_sbb_rm32);
+}
+
+#[test]
+fn test_sbb_rm64() {
+    test2("sbb", Emit::emit_sbb_rm64);
+}
+
+#[test]
+fn test_sbb_mi8() {
+    test2("sbb", Emit::emit_sbb_mi8);
+}
+
+#[test]
+fn test_sbb_mi16() {
+    test2("sbb", Emit::emit_sbb_mi16);
+}
+
+#[test]
+fn test_sbb_mi32() {
+    test2("sbb", Emit::emit_sbb_mi32);
+}
+
+#[test]
+fn test_sbb_m64_i32() {
+    test2("sbb", Emit::emit_sbb_m64_i32);
+}
+
+#[test]
+fn test_sbb_m16_i8() {
+    test2("sbb", Emit::emit_sbb_m16_i8);
+}
+
+#[test]
+fn test_sbb_m32_i8() {
+    test2("sbb", Emit::emit_sbb_m32_i8);
+}
+
+#[test]
+fn test_sbb_m64_i8() {
+    test2("sbb", Emit::emit_sbb_m64_i8);
+}
+
+#[test]
+fn test_sbb_mr8() {
+    test2_filter("sbb", Emit::emit_sbb_mr8, |_, r| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_sbb_mr16() {
+    test2("sbb", Emit::emit_sbb_mr16);
+}
+
+#[test]
+fn test_sbb_mr32() {
+    test2("sbb", Emit::emit_sbb_mr32);
+}
+
+#[test]
+fn test_sbb_mr64() {
+    test2("sbb", Emit::emit_sbb_mr64);
+}
+
+#[test]
+fn test_setcc_r8() {
+    test2_cond("set", Emit::emit_setcc_r8);
+}
+
+#[test]
+fn test_setcc_m8() {
+    test2_cond("set", Emit::emit_setcc_m8);
+}
+
+#[test]
+fn test_shl_r8_1() {
+    test1_format("shl", Emit::emit_shl_r8_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shl_r16_1() {
+    test1_format("shl", Emit::emit_shl_r16_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shl_r32_1() {
+    test1_format("shl", Emit::emit_shl_r32_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shl_r64_1() {
+    test1_format("shl", Emit::emit_shl_r64_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shl_r8_cl() {
+    test1_format("shl", Emit::emit_shl_r8_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shl_r16_cl() {
+    test1_format("shl", Emit::emit_shl_r16_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shl_r32_cl() {
+    test1_format("shl", Emit::emit_shl_r32_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shl_r64_cl() {
+    test1_format("shl", Emit::emit_shl_r64_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shl_ri8() {
+    test2("shl", Emit::emit_shl_ri8);
+}
+
+#[test]
+fn test_shl_ri16() {
+    test2("shl", Emit::emit_shl_ri16);
+}
+
+#[test]
+fn test_shl_ri32() {
+    test2("shl", Emit::emit_shl_ri32);
+}
+
+#[test]
+fn test_shl_ri64() {
+    test2("shl", Emit::emit_shl_ri64);
+}
+
+#[test]
+fn test_shl_m8_1() {
+    test1_format("shl", Emit::emit_shl_m8_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shl_m16_1() {
+    test1_format("shl", Emit::emit_shl_m16_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shl_m32_1() {
+    test1_format("shl", Emit::emit_shl_m32_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shl_m64_1() {
+    test1_format("shl", Emit::emit_shl_m64_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shl_m8_cl() {
+    test1_format("shl", Emit::emit_shl_m8_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shl_m16_cl() {
+    test1_format("shl", Emit::emit_shl_m16_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shl_m32_cl() {
+    test1_format("shl", Emit::emit_shl_m32_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shl_m64_cl() {
+    test1_format("shl", Emit::emit_shl_m64_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shl_mi8() {
+    test2("shl", Emit::emit_shl_mi8);
+}
+
+#[test]
+fn test_shl_mi16() {
+    test2("shl", Emit::emit_shl_mi16);
+}
+
+#[test]
+fn test_shl_mi32() {
+    test2("shl", Emit::emit_shl_mi32);
+}
+
+#[test]
+fn test_shl_mi64() {
+    test2("shl", Emit::emit_shl_mi64);
+}
+
+#[test]
+fn test_shr_r8_1() {
+    test1_format("shr", Emit::emit_shr_r8_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shr_r16_1() {
+    test1_format("shr", Emit::emit_shr_r16_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shr_r32_1() {
+    test1_format("shr", Emit::emit_shr_r32_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shr_r64_1() {
+    test1_format("shr", Emit::emit_shr_r64_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shr_r8_cl() {
+    test1_format("shr", Emit::emit_shr_r8_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shr_r16_cl() {
+    test1_format("shr", Emit::emit_shr_r16_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shr_r32_cl() {
+    test1_format("shr", Emit::emit_shr_r32_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shr_r64_cl() {
+    test1_format("shr", Emit::emit_shr_r64_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shr_ri8() {
+    test2("shr", Emit::emit_shr_ri8);
+}
+
+#[test]
+fn test_shr_ri16() {
+    test2("shr", Emit::emit_shr_ri16);
+}
+
+#[test]
+fn test_shr_ri32() {
+    test2("shr", Emit::emit_shr_ri32);
+}
+
+#[test]
+fn test_shr_ri64() {
+    test2("shr", Emit::emit_shr_ri64);
+}
+
+#[test]
+fn test_shr_m8_1() {
+    test1_format("shr", Emit::emit_shr_m8_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shr_m16_1() {
+    test1_format("shr", Emit::emit_shr_m16_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shr_m32_1() {
+    test1_format("shr", Emit::emit_shr_m32_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shr_m64_1() {
+    test1_format("shr", Emit::emit_shr_m64_1, |s| format!("{s}, 1"));
+}
+
+#[test]
+fn test_shr_m8_cl() {
+    test1_format("shr", Emit::emit_shr_m8_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shr_m16_cl() {
+    test1_format("shr", Emit::emit_shr_m16_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shr_m32_cl() {
+    test1_format("shr", Emit::emit_shr_m32_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shr_m64_cl() {
+    test1_format("shr", Emit::emit_shr_m64_cl, |s| format!("{s}, cl"));
+}
+
+#[test]
+fn test_shr_mi8() {
+    test2("shr", Emit::emit_shr_mi8);
+}
+
+#[test]
+fn test_shr_mi16() {
+    test2("shr", Emit::emit_shr_mi16);
+}
+
+#[test]
+fn test_shr_mi32() {
+    test2("shr", Emit::emit_shr_mi32);
+}
+
+#[test]
+fn test_shr_mi64() {
+    test2("shr", Emit::emit_shr_mi64);
+}
+
+#[test]
+fn test_sub_al_i8() {
+    test1_format("sub", Emit::emit_sub_al_i8, |s| format!("al, {s}"));
+}
+
+#[test]
+fn test_sub_ax_i16() {
+    test1_format("sub", Emit::emit_sub_ax_i16, |s| format!("ax, {s}"));
+}
+
+#[test]
+fn test_sub_eax_i32() {
+    test1_format("sub", Emit::emit_sub_eax_i32, |s| format!("eax, {s}"));
+}
+
+#[test]
+fn test_sub_rax_i32() {
+    test1_format("sub", Emit::emit_sub_rax_i32, |s| format!("rax, {s}"));
+}
+
+#[test]
+fn test_sub_ri8() {
+    test2("sub", Emit::emit_sub_ri8);
+}
+
+#[test]
+fn test_sub_ri16() {
+    test2("sub", Emit::emit_sub_ri16);
+}
+
+#[test]
+fn test_sub_ri32() {
+    test2("sub", Emit::emit_sub_ri32);
+}
+
+#[test]
+fn test_sub_r64_i32() {
+    test2("sub", Emit::emit_sub_r64_i32);
+}
+
+#[test]
+fn test_sub_r16_i8() {
+    test2("sub", Emit::emit_sub_r16_i8);
+}
+
+#[test]
+fn test_sub_r32_i8() {
+    test2("sub", Emit::emit_sub_r32_i8);
+}
+
+#[test]
+fn test_sub_r64_i8() {
+    test2("sub", Emit::emit_sub_r64_i8);
+}
+
+#[test]
+fn test_sub_rr8() {
+    test2_filter("sub", Emit::emit_sub_rr8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_sub_rr16() {
+    test2("sub", Emit::emit_sub_rr16);
+}
+
+#[test]
+fn test_sub_rr32() {
+    test2("sub", Emit::emit_sub_rr32);
+}
+
+#[test]
+fn test_sub_rr64() {
+    test2("sub", Emit::emit_sub_rr64);
+}
+
+#[test]
+fn test_sub_rm8() {
+    test2_filter("sub", Emit::emit_sub_rm8, |r, _| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_sub_rm16() {
+    test2("sub", Emit::emit_sub_rm16);
+}
+
+#[test]
+fn test_sub_rm32() {
+    test2("sub", Emit::emit_sub_rm32);
+}
+
+#[test]
+fn test_sub_rm64() {
+    test2("sub", Emit::emit_sub_rm64);
+}
+
+#[test]
+fn test_sub_mi8() {
+    test2("sub", Emit::emit_sub_mi8);
+}
+
+#[test]
+fn test_sub_mi16() {
+    test2("sub", Emit::emit_sub_mi16);
+}
+
+#[test]
+fn test_sub_mi32() {
+    test2("sub", Emit::emit_sub_mi32);
+}
+
+#[test]
+fn test_sub_m64_i32() {
+    test2("sub", Emit::emit_sub_m64_i32);
+}
+
+#[test]
+fn test_sub_m16_i8() {
+    test2("sub", Emit::emit_sub_m16_i8);
+}
+
+#[test]
+fn test_sub_m32_i8() {
+    test2("sub", Emit::emit_sub_m32_i8);
+}
+
+#[test]
+fn test_sub_m64_i8() {
+    test2("sub", Emit::emit_sub_m64_i8);
+}
+
+#[test]
+fn test_sub_mr8() {
+    test2_filter("sub", Emit::emit_sub_mr8, |_, r| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_sub_mr16() {
+    test2("sub", Emit::emit_sub_mr16);
+}
+
+#[test]
+fn test_sub_mr32() {
+    test2("sub", Emit::emit_sub_mr32);
+}
+
+#[test]
+fn test_sub_mr64() {
+    test2("sub", Emit::emit_sub_mr64);
+}
+
+#[test]
+fn test_test_al_i8() {
+    test1_format("test", Emit::emit_test_al_i8, |s| format!("al, {s}"));
+}
+
+#[test]
+fn test_test_ax_i16() {
+    test1_format("test", Emit::emit_test_ax_i16, |s| format!("ax, {s}"));
+}
+
+#[test]
+fn test_test_eax_i32() {
+    test1_format("test", Emit::emit_test_eax_i32, |s| format!("eax, {s}"));
+}
+
+#[test]
+fn test_test_rax_i32() {
+    test1_format("test", Emit::emit_test_rax_i32, |s| format!("rax, {s}"));
+}
+
+#[test]
+fn test_test_ri8() {
+    test2("test", Emit::emit_test_ri8);
+}
+
+#[test]
+fn test_test_ri16() {
+    test2("test", Emit::emit_test_ri16);
+}
+
+#[test]
+fn test_test_ri32() {
+    test2("test", Emit::emit_test_ri32);
+}
+
+#[test]
+fn test_test_r64_i32() {
+    test2("test", Emit::emit_test_r64_i32);
+}
+
+#[test]
+fn test_test_rr8() {
+    test2_filter("test", Emit::emit_test_rr8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_test_rr16() {
+    test2("test", Emit::emit_test_rr16);
+}
+
+#[test]
+fn test_test_rr32() {
+    test2("test", Emit::emit_test_rr32);
+}
+
+#[test]
+fn test_test_rr64() {
+    test2("test", Emit::emit_test_rr64);
+}
+
+#[test]
+fn test_test_mi8() {
+    test2("test", Emit::emit_test_mi8);
+}
+
+#[test]
+fn test_test_mi16() {
+    test2("test", Emit::emit_test_mi16);
+}
+
+#[test]
+fn test_test_mi32() {
+    test2("test", Emit::emit_test_mi32);
+}
+
+#[test]
+fn test_test_m64_i32() {
+    test2("test", Emit::emit_test_m64_i32);
+}
+
+#[test]
+fn test_test_mr8() {
+    test2_filter("test", Emit::emit_test_mr8, |_, r| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_test_mr16() {
+    test2("test", Emit::emit_test_mr16);
+}
+
+#[test]
+fn test_test_mr32() {
+    test2("test", Emit::emit_test_mr32);
+}
+
+#[test]
+fn test_test_mr64() {
+    test2("test", Emit::emit_test_mr64);
 }
 
 #[test]
 fn test_ud2() {
-    test_unit("ud2", Emit::emit_ud2);
+    test0("ud2", Emit::emit_ud2);
+}
+
+#[test]
+fn test_xchg_r16_ax() {
+    test1_format_filter("xchg", Emit::emit_xchg_r16_ax,
+        |s| format!("{s}, ax"),
+        |r| r != Ax);
+}
+
+#[test]
+fn test_xchg_r32_eax() {
+    test1_format_filter("xchg", Emit::emit_xchg_r32_eax,
+        |s| format!("{s}, eax"),
+        |r| r != Eax);
+}
+
+#[test]
+fn test_xchg_r64_rax() {
+    test1_format_filter("xchg", Emit::emit_xchg_r64_rax,
+        |s| format!("{s}, rax"),
+        |r| r != Rax);
+}
+
+#[test]
+fn test_xchg_rr8() {
+    test2_filter("xchg", Emit::emit_xchg_rr8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_xchg_rr16() {
+    test2("xchg", Emit::emit_xchg_rr16);
+}
+
+#[test]
+fn test_xchg_rr32() {
+    test2("xchg", Emit::emit_xchg_rr32);
+}
+
+#[test]
+fn test_xchg_rr64() {
+    test2("xchg", Emit::emit_xchg_rr64);
+}
+
+#[test]
+fn test_xchg_mr8() {
+    test2_filter("xchg", Emit::emit_xchg_mr8, |_, r| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_xchg_mr16() {
+    test2("xchg", Emit::emit_xchg_mr16);
+}
+
+#[test]
+fn test_xchg_mr32() {
+    test2("xchg", Emit::emit_xchg_mr32);
+}
+
+#[test]
+fn test_xchg_mr64() {
+    test2("xchg", Emit::emit_xchg_mr64);
+}
+
+#[test]
+fn test_xor_al_i8() {
+    test1_format("xor", Emit::emit_xor_al_i8, |s| format!("al, {s}"));
+}
+
+#[test]
+fn test_xor_ax_i16() {
+    test1_format("xor", Emit::emit_xor_ax_i16, |s| format!("ax, {s}"));
+}
+
+#[test]
+fn test_xor_eax_i32() {
+    test1_format("xor", Emit::emit_xor_eax_i32, |s| format!("eax, {s}"));
+}
+
+#[test]
+fn test_xor_rax_i32() {
+    test1_format_filter::<u64>("xor", |e, imm| e.emit_xor_rax_i32(imm as i32),
+        |s| format!("rax, {s}"),
+        |imm| is_signed_nbit_integer(32, imm as i64));
+}
+
+#[test]
+fn test_xor_ri8() {
+    test2("xor", Emit::emit_xor_ri8);
+}
+
+#[test]
+fn test_xor_ri16() {
+    test2("xor", Emit::emit_xor_ri16);
+}
+
+#[test]
+fn test_xor_ri32() {
+    test2("xor", Emit::emit_xor_ri32);
+}
+
+#[test]
+fn test_xor_r64_i32() {
+    test2_filter::<_, u64>("xor", |e, r, imm| e.emit_xor_r64_i32(r, imm as i32),
+        |_, imm| is_signed_nbit_integer(32, imm as i64));
+}
+
+#[test]
+fn test_xor_r16_i8() {
+    test2_filter::<_, u16>("xor", |e, r, imm| e.emit_xor_r16_i8(r, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i16));
+}
+
+#[test]
+fn test_xor_r32_i8() {
+    test2_filter::<_, u32>("xor", |e, r, imm| e.emit_xor_r32_i8(r, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i32));
+}
+
+#[test]
+fn test_xor_r64_i8() {
+    test2_filter::<_, u64>("xor", |e, r, imm| e.emit_xor_r64_i8(r, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i64));
+}
+
+#[test]
+fn test_xor_rr8() {
+    test2_filter("xor", Emit::emit_xor_rr8, |r1, r2| {
+        are_registers_compatible(r1, r2)
+    });
+}
+
+#[test]
+fn test_xor_rr16() {
+    test2("xor", Emit::emit_xor_rr16);
+}
+
+#[test]
+fn test_xor_rr32() {
+    test2("xor", Emit::emit_xor_rr32);
+}
+
+#[test]
+fn test_xor_rr64() {
+    test2("xor", Emit::emit_xor_rr64);
+}
+
+#[test]
+fn test_xor_rm8() {
+    test2_filter("xor", Emit::emit_xor_rm8, |r, _| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_xor_rm16() {
+    test2("xor", Emit::emit_xor_rm16);
+}
+
+#[test]
+fn test_xor_rm32() {
+    test2("xor", Emit::emit_xor_rm32);
+}
+
+#[test]
+fn test_xor_rm64() {
+    test2("xor", Emit::emit_xor_rm64);
+}
+
+#[test]
+fn test_xor_mi8() {
+    test2("xor", Emit::emit_xor_mi8);
+}
+
+#[test]
+fn test_xor_mi16() {
+    test2("xor", Emit::emit_xor_mi16);
+}
+
+#[test]
+fn test_xor_mi32() {
+    test2("xor", Emit::emit_xor_mi32);
+}
+
+#[test]
+fn test_xor_m64_i32() {
+    test2_filter::<_, u64>("xor", |e, m, imm| e.emit_xor_m64_i32(m, imm as i32),
+        |_, imm| is_signed_nbit_integer(32, imm as i64));
+}
+
+#[test]
+fn test_xor_m16_i8() {
+    test2_filter::<_, u16>("xor", |e, m, imm| e.emit_xor_m16_i8(m, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i16));
+}
+
+#[test]
+fn test_xor_m32_i8() {
+    test2_filter::<_, u32>("xor", |e, m, imm| e.emit_xor_m32_i8(m, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i32));
+}
+
+#[test]
+fn test_xor_m64_i8() {
+    test2_filter::<_, u64>("xor", |e, m, imm| e.emit_xor_m64_i8(m, imm as i8),
+        |_, imm| is_signed_nbit_integer(8, imm as i64));
+}
+
+#[test]
+fn test_xor_mr8() {
+    test2_filter("xor", Emit::emit_xor_mr8, |_, r| {
+        r.is_encodable_with_rex()
+    });
+}
+
+#[test]
+fn test_xor_mr16() {
+    test2("xor", Emit::emit_xor_mr16);
+}
+
+#[test]
+fn test_xor_mr32() {
+    test2("xor", Emit::emit_xor_mr32);
+}
+
+#[test]
+fn test_xor_mr64() {
+    test2("xor", Emit::emit_xor_mr64);
 }

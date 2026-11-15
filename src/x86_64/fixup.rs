@@ -9,7 +9,7 @@ pub enum FixupKind {
 }
 
 impl<Emit> mitte_core::FixupKind<Emit> for FixupKind
-    where Emit: mitte_core::Emit
+    where Emit: mitte_core::Emit + ?Sized
 {
     #[inline]
     fn apply_fixup(&self, emit: &mut Emit, range: Range<u64>, offset: i64) -> Result<(), Error> {

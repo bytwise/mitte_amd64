@@ -32,6 +32,7 @@ pub trait Register: Copy + 'static + fmt::Debug {
     fn needs_rex(&self) -> bool;
     fn rm(&self) -> u8;
     fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>>;
+    fn index(&self) -> RegisterIndex;
 }
 
 
@@ -53,6 +54,56 @@ impl Register for NoRegister {
     fn rm(&self) -> u8 { 0 }
     #[inline]
     fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>> { Ok(()) }
+    #[inline]
+    fn index(&self) -> RegisterIndex { RegisterIndex { index: 0 } }
+}
+
+
+#[derive(Clone, Copy, Debug)]
+pub struct RegisterIndex {
+    pub index: u32,
+}
+
+impl Register for RegisterIndex {
+    #[inline]
+    fn size(&self) -> usize {
+        panic!("erased register has no size")
+    }
+
+    #[inline]
+    fn is_64bit(&self) -> bool {
+        false
+    }
+
+    #[inline]
+    fn has_extended_index(&self) -> bool {
+        self.index & 0x8 != 0
+    }
+
+    #[inline]
+    fn is_encodable_with_rex(&self) -> bool {
+        true
+    }
+
+    #[inline]
+    fn needs_rex(&self) -> bool {
+        self.index >= 8
+    }
+
+    #[inline]
+    fn rm(&self) -> u8 {
+        self.index as u8 & 7
+    }
+
+    #[inline]
+    fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>> {
+        Ok(())
+    }
+
+    #[inline]
+    fn index(&self) -> RegisterIndex {
+        *self
+    }
 }
 
 
@@ -110,6 +161,34 @@ pub fn rex_rxb<R, X, B>(r: R, x: X, b: B) -> Result<Option<u8>, Error<NoError>>
         | b.has_extended_index() as u8;
 
     Ok(Some(rex))
+}
+
+
+pub fn rexw_b<B>(b: B) -> Result<u8, Error<NoError>>
+    where B: Register
+{
+    rexw_rxb(NoRegister, NoRegister, b)
+}
+
+pub fn rexw_rb<R, B>(r: R, b: B) -> Result<u8, Error<NoError>>
+    where R: Register, B: Register
+{
+    rexw_rxb(r, NoRegister, b)
+}
+
+pub fn rexw_rxb<R, X, B>(r: R, x: X, b: B) -> Result<u8, Error<NoError>>
+    where R: Register, X: Register, B: Register
+{
+    r.check_is_rex_compatible()?;
+    x.check_is_rex_compatible()?;
+    b.check_is_rex_compatible()?;
+
+    let rex = 0x48
+        | (r.has_extended_index() as u8) << 2
+        | (x.has_extended_index() as u8) << 1
+        | b.has_extended_index() as u8;
+
+    Ok(rex)
 }
 
 

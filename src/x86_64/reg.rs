@@ -1,4 +1,4 @@
-use super::common::{Register, NoError};
+use super::common::{Register, RegisterIndex, NoError};
 use super::error::Error;
 pub use self::Reg8::*;
 pub use self::Reg16::*;
@@ -74,6 +74,11 @@ impl Register for Reg8 {
         } else {
             Err(Error::RexIncompatibleRegister(*self))
         }
+    }
+
+    #[inline]
+    fn index(&self) -> RegisterIndex {
+        RegisterIndex { index: *self as u32 }
     }
 }
 
@@ -164,6 +169,11 @@ impl Register for Reg16 {
     fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>> {
         Ok(())
     }
+
+    #[inline]
+    fn index(&self) -> RegisterIndex {
+        RegisterIndex { index: *self as u32 }
+    }
 }
 
 impl Reg16 {
@@ -252,6 +262,11 @@ impl Register for Reg32 {
     #[inline]
     fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>> {
         Ok(())
+    }
+
+    #[inline]
+    fn index(&self) -> RegisterIndex {
+        RegisterIndex { index: *self as u32 }
     }
 }
 
@@ -365,6 +380,11 @@ impl Register for Reg64 {
     #[inline]
     fn check_is_rex_compatible(&self) -> Result<(), Error<NoError>> {
         Ok(())
+    }
+
+    #[inline]
+    fn index(&self) -> RegisterIndex {
+        RegisterIndex { index: *self as u32 }
     }
 }
 
